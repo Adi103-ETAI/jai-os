@@ -29,3 +29,12 @@ Rule: test VMs must never starve the build host.
 ## 2026-10-26 — Headless only
 No display manager, no PipeWire in base (audio arrives with Phase 4
 voice stack only). Boot target: multi-user, SSH + Tailscale.
+
+## 2026-10-26 — Phase 0 COMPLETE ✅
+jai_dev compiled against kali 7.1.5 kernel and loaded successfully.
+Verified: /dev/jai read ("JAI is awake. Kernel link established."),
+write→kernel log ("jai: event: hello from userland"), open counter.
+Makefile ccache quoting bug found and fixed during first build.
+Module is boot-scoped (not persisted) — Phase 2 adds modules-load.d
+integration so JAI OS loads its own kernel module at boot.
+Next: Phase 1 — debootstrap Ubuntu 24.04 minimal rootfs, boot in 1 GB VM.
