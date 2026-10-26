@@ -1,0 +1,11 @@
+# build outputs are disposable — never commit
+build/
+*.ko
+*.o
+*.mod*
+Module.symvers
+modules.order
+.tmp_versions/
+image/*.img
+image/*.raw
+image/jarvisos*.zst
