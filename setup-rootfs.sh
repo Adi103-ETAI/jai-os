@@ -14,6 +14,10 @@ echo "[jai] mounting virtual filesystems into chroot"
 mount -t proc  proc  "$R/proc"     2>/dev/null || true
 mount --rbind /sys   "$R/sys"      2>/dev/null || true
 mount --rbind /dev   "$R/dev"      2>/dev/null || true
+# CRITICAL: mark the bind trees rslave so unmounts never propagate back
+# to the host (2026-10-26 incident: lazy unmount killed host /dev/pts)
+mount --make-rslave "$R/sys" 2>/dev/null || true
+mount --make-rslave "$R/dev" 2>/dev/null || true
 mkdir -p "$R/run/systemd" 2>/dev/null || true
 
 echo "[jai] writing apt sources (Ubuntu $RELEASE)"
@@ -61,7 +65,7 @@ fi
 echo "[jai] setting root password prompt on first boot (locked by default)"
 chroot "$R" passwd -l root 2>/dev/null || true
 
-echo "[jai] unmounting chroot virtual filesystems"
+echo "[jai] unmounting chroot virtual filesystems (rslave — cannot propagate)"
 umount -R "$R/proc" 2>/dev/null || true
 umount -R "$R/sys"  2>/dev/null || true
 umount -R "$R/dev"  2>/dev/null || true

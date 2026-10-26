@@ -16,10 +16,11 @@ trap 'rm -rf "$STAGE"' EXIT
 [ -d "$R/boot" ] || { echo "ERROR: no rootfs at $R — run ./build.sh rootfs && sudo ./setup-rootfs.sh first" >&2; exit 1; }
 [ -f "$R/boot/vmlinuz" ] || { echo "ERROR: no kernel in rootfs /boot" >&2; exit 1; }
 
-echo "[jai] best-effort detaching virtual filesystems from rootfs"
-for m in sys dev proc run; do
-	umount -R -l "$R/$m" 2>/dev/null || true
-done
+# NOTE: we deliberately do NOT unmount anything from the rootfs.
+# Lazy-unmounting bind-mounted /dev subtrees propagated back to the host
+# and took down /dev/pts + /dev/shm (2026-10-26 incident, see DECISIONS.md).
+# rsync -x below skips mounted virtual filesystems by definition —
+# the mount state simply doesn't matter.
 
 echo "[jai] snapshotting rootfs to clean staging dir (rsync -x skips mounts)"
 rsync -aHAX --numeric-ids -x "$R/" "$STAGE/"

@@ -30,6 +30,20 @@ Rule: test VMs must never starve the build host.
 No display manager, no PipeWire in base (audio arrives with Phase 4
 voice stack only). Boot target: multi-user, SSH + Tailscale.
 
+## 2026-10-26 — INCIDENT: bind-mount unmount killed host /dev/pts + /dev/shm
+vm/make-disk.sh lazily unmounted the rbind'd /dev subtree inside the
+rootfs; the unmount propagated through shared-mount peer groups and
+detached the HOST's /dev/pts and /dev/shm. Result: no new pty can be
+allocated → every subsequent `sudo` fails (sudo's use_pty needs a pty).
+Deadlock: fixing needs root, root needs a pty → clean reboot required.
+Rules adopted:
+1. NEVER unmount rbind'd subtrees without `mount --make-rslave` first.
+2. setup-rootfs.sh now marks bind trees rslave immediately after rbind.
+3. make-disk.sh no longer unmounts anything — rsync -x staging makes
+   mount state irrelevant.
+Mitigation for readers who hit this: `systemctl reboot` (polkit allows
+reboot from an active user session — no sudo needed).
+
 ## 2026-10-26 — Phase 0 COMPLETE ✅
 jai_dev compiled against kali 7.1.5 kernel and loaded successfully.
 Verified: /dev/jai read ("JAI is awake. Kernel link established."),
