@@ -44,6 +44,18 @@ Rules adopted:
 Mitigation for readers who hit this: `systemctl reboot` (polkit allows
 reboot from an active user session — no sudo needed).
 
+### Incident escalation (same day)
+The damage was worse than first measured: the /sys rbind unmount ALSO
+propagated and detached /sys/fs/cgroup (cgroup2). Consequences:
+- polkitd cannot restart (systemd cannot create cgroups →
+  "Failed to create cgroup /system.slice/polkit.service"), start-limit-hit
+- ALL systemd service starts fail → dbus activation dead → polkit dead
+- systemctl reboot (and --force --force) impossible: polkit auth +
+  cgroup-required shutdown jobs both unavailable → "Need to be root"
+Full recovery required physical intervention: hardware power cycle.
+Lesson: rbind of /sys is even more dangerous than /dev — cgroupfs is
+load-bearing for the entire service manager. Recovery: power button.
+
 ## 2026-10-26 — Phase 0 COMPLETE ✅
 jai_dev compiled against kali 7.1.5 kernel and loaded successfully.
 Verified: /dev/jai read ("JAI is awake. Kernel link established."),
