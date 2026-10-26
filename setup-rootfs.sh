@@ -38,7 +38,8 @@ cp "$JAI_ROOT/rootfs/packages.txt" "$R/tmp/packages.txt"
 echo "[jai] installing JAI package set (this takes a while)"
 chroot "$R" env DEBIAN_FRONTEND=noninteractive bash -c '
   apt-get update -qq
-  xargs -a /tmp/packages.txt apt-get install -y -qq --no-install-recommends
+  grep -vE "^\s*(#|$)" /tmp/packages.txt |
+    xargs apt-get install -y -qq --no-install-recommends
   rm -f /tmp/packages.txt
   apt-get clean
 '
