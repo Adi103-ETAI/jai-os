@@ -9,3 +9,7 @@ modules.order
 image/*.img
 image/*.raw
 image/jarvisos*.zst
+
+# disk images anywhere
+*.img
+*.raw
