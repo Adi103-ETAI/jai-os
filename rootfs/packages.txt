@@ -1,0 +1,16 @@
+# packages.txt — extra apt packages layered onto the Ubuntu 24.04 base
+# (the debootstrap minimal set is implied; this list is what JAI adds)
+linux-image-generic
+linux-headers-generic
+openssh-server
+ca-certificates
+curl
+git
+python3
+python3-pip
+wireguard-tools
+dbus
+polkitd
+sudo
+tmux
+htop

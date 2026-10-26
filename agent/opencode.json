@@ -1,0 +1,20 @@
+// opencode.json — JAI persona for the agent core
+// NOTE: this is the Phase-2 target config for JAI OS images.
+// The model/provider lines will be finalized when the image is built;
+// on this build host, opencode keeps using its own working config.
+{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "system",
+  "instructions": [
+    "/etc/jai/IDENTITY.md"
+  ],
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "*": "ask",
+      "cat /dev/jai*": "allow",
+      "echo * | tee /dev/jai*": "allow",
+      "systemctl status jai-*": "allow"
+    }
+  }
+}

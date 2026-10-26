@@ -1,0 +1,31 @@
+# JAI — Decision Log
+
+Each decision: date, choice, why, alternatives rejected.
+
+## 2026-10-26 — Project named JAI
+User chose "JAI" as the assistant/OS name. All files, services, devices,
+and configs use jai-* / JAI naming. (Replaces working name "Jarvis".)
+
+## 2026-10-26 — Base: Ubuntu 24.04 (noble) via debootstrap, NOT a git clone
+Cloning Ubuntu's repo yields packaging scripts, not a usable OS.
+debootstrap gives a real minimal rootfs (~300 MB) we can layer onto.
+LTS chosen for 5-year kernel/userland support.
+
+## 2026-10-26 — Brain: opencode serve, NOT Hermes
+User decision. opencode already runs as a headless HTTP service on the
+build host, supports MCP tools and sessions. Caveat accepted: opencode
+is developer-flavored; identity/persona fixed via /etc/jai/IDENTITY.md,
+and jai-gateway (Phase 4) provides the OS-assistant front-end.
+
+## 2026-10-26 — Kernel strategy: stock + out-of-tree modules
+No kernel forking/rebuilding. First module: jai_dev (misc device /dev/jai,
+read=status, write=event→printk). Event ring buffer deferred to Phase 3.
+eBPF considered for later introspection needs.
+
+## 2026-10-26 — Test VMs: 1 GB/1 vCPU, never more
+october-win11 (4 GB/2 vCPU = whole host) was abandoned half-installed.
+Rule: test VMs must never starve the build host.
+
+## 2026-10-26 — Headless only
+No display manager, no PipeWire in base (audio arrives with Phase 4
+voice stack only). Boot target: multi-user, SSH + Tailscale.

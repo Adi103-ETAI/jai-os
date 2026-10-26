@@ -1,0 +1,18 @@
+# jai-gateway.service — JAI's ears and mouth (voice/IO glue, Phase 4)
+# Placeholder until the gateway is written; will not fail while missing.
+[Unit]
+Description=JAI Gateway (voice / IO front-end)
+After=jai-agent.service
+Requires=jai-agent.service
+
+[Service]
+Type=simple
+User=jai
+Environment=JAI_AGENT_URL=http://127.0.0.1:4096
+ExecStart=/usr/local/jai/gateway.py
+Restart=on-failure
+RestartSec=5
+ConditionPathExists=/usr/local/jai/gateway.py
+
+[Install]
+WantedBy=multi-user.target

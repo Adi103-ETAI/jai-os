@@ -1,0 +1,26 @@
+# jai-agent.service — the JAI brain: opencode serve as headless agent daemon
+# Installed into JAI OS images via rootfs/overlay/
+[Unit]
+Description=JAI Agent Core (opencode serve)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jai
+Group=jai
+Environment=HOME=/var/lib/jai
+Environment=OPENCODE_CONFIG=/etc/jai/opencode.json
+ExecStart=/usr/local/bin/opencode serve --service
+Restart=on-failure
+RestartSec=5
+
+# Agent should not have free rein on the OS it lives in
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/jai /var/lib/jai-memory
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
