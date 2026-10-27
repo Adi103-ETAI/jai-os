@@ -1,5 +1,6 @@
 # packages.txt — extra apt packages layered onto the Ubuntu 24.04 base
 # (the debootstrap minimal set is implied; this list is what JAI adds)
+initramfs-tools
 linux-image-generic
 linux-headers-generic
 openssh-server
