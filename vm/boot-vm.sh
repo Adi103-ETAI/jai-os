@@ -13,7 +13,7 @@ I="$R/boot/initrd.img"
 [ -e "$K" ] && [ -e "$I" ] || { echo "ERROR: kernel/initrd missing in $R/boot" >&2; exit 1; }
 
 exec qemu-system-x86_64 \
-  -accel kvm \
+  -accel tcg \
   -m 1024 -smp 1 \
   -kernel "$K" -initrd "$I" \
   -append "root=/dev/vda rw console=ttyS0 loglevel=4" \
