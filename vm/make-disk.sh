@@ -34,4 +34,12 @@ truncate -s 6G "$IMG"
 echo "[jai] formatting ext4 and populating from clean snapshot"
 mkfs.ext4 -q -F -L jairoot -E root_owner=0:0 -d "$STAGE" "$IMG"
 
+# This script runs under sudo, so the image would be root-owned and
+# boot-vm.sh (run as the normal user) would fail with "Permission denied".
+# Hand it to the invoking user.
+if [ -n "${SUDO_USER:-}" ]; then
+  chown "$SUDO_USER:$SUDO_USER" "$IMG"
+fi
+chmod 664 "$IMG"
+
 echo "[jai] DONE — boot with ./boot-vm.sh"

@@ -32,7 +32,8 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   - ✅ `scripts/phase2.sh` — one-command bake-in (opencode, /etc/jai, in-chroot
     module build with KDIR override, depmod, modules-load.d)
   - ✅ `scripts/doctor.sh` — build host pre-flight check
-  - ✅ overlay additions: `etc/modules-load.d/jai.conf`, `etc/fstab`
+  - ✅ overlay additions: `etc/modules-load.d/jai.conf`, `etc/fstab`,
+    `etc/systemd/system/jai-link.service` (boot kernel handshake)
   - ✅ `packages.txt` hardened: `systemd` + `systemd-sysv` explicit (minbase
     does not guarantee PID 1), `kmod` for depmod/modprobe
   - ❌ `opencode` binary NOT inside the rootfs yet → run `sudo ./scripts/phase2.sh`
@@ -44,9 +45,15 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 - ⬜ `phase2.sh` actually RUN on the build host (needs the host)
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
-## Phase 3 — Kernel event system ⬜
-- ⬜ `/dev/jai` event ring buffer (replaces printk)
-- ⬜ `jai-system` MCP server: service health, dmesg, /dev/jai link
+## Phase 3 — Kernel event system 🟡 FIRST CUT DONE
+- ✅ **agent↔kernel/OS bridge:** `agent/mcp/jai-system.py` — zero-dependency
+  MCP stdio server (raw JSON-RPC 2.0) exposing /dev/jai read/write, dmesg,
+  jai-* service health, sysinfo, and /var/lib/jai-memory to the agent;
+  wired into `opencode.json` → mcp; deployed by `phase2.sh` 5b+
+- ✅ `jai-link.service` — boot-time kernel handshake (cat /dev/jai + boot
+  event into kernel log); jai user added to adm/systemd-journal for dmesg
+- ⬜ `/dev/jai` event ring buffer in the kernel module (replaces printk)
+- ⬜ runtime event subscription (kernel → agent push, not just agent pull)
 
 ## Phase 4 — Voice + remote access ⬜
 - ⬜ jai-gateway: openWakeWord + whisper.cpp (STT) + Piper (TTS), event-driven

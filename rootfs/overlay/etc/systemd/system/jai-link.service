@@ -1,0 +1,24 @@
+# jai-link.service — boot-time kernel handshake (Phase 3, first cut)
+# Runs after the jai_dev module is loaded (modules-load.d) and the agent is
+# up: proves the link works and stamps the kernel log with the boot event.
+# Runtime kernel access for the agent goes through the jai-system MCP server.
+[Unit]
+Description=JAI Kernel Link Handshake (/dev/jai)
+After=systemd-modules-load.service jai-agent.service
+Wants=jai-agent.service
+
+[Service]
+Type=oneshot
+User=jai
+Group=jai
+RemainAfterExit=yes
+# cat → status lands in the journal; write → kernel log gets the boot event
+ExecStart=/bin/sh -c 'test -e /dev/jai && cat /dev/jai && echo "boot: JAI OS kernel link up ($(uname -r))" > /dev/jai'
+# hardening: this unit only ever touches /dev/jai
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -8,6 +8,13 @@
   "instructions": [
     "/etc/jai/IDENTITY.md"
   ],
+  "mcp": {
+    "jai-system": {
+      "type": "local",
+      "command": ["python3", "/usr/local/jai/mcp/jai-system.py"],
+      "enabled": true
+    }
+  },
   "permission": {
     "edit": "ask",
     "bash": {

@@ -82,6 +82,13 @@ cp "$JAI_ROOT/agent/IDENTITY.md"   "$R/etc/jai/IDENTITY.md"
 # jai user is uid 1000 inside the rootfs (host passwd doesn't know it) — use numeric
 chown -R 1000:1000 "$R/var/lib/jai" "$R/var/lib/jai-memory"
 
+# --- 5b+: agent↔kernel/OS bridge (jai-system MCP server) ---
+msg "5b+. installing jai-system MCP server → /usr/local/jai/mcp"
+install -D -m 0755 "$JAI_ROOT/agent/mcp/jai-system.py" "$R/usr/local/jai/mcp/jai-system.py"
+# jai_dmesg needs kernel-log access: systemd-journal (journalctl -k) + adm
+chroot "$R" usermod -aG adm,systemd-journal jai 2>/dev/null \
+  || warn "could not add jai to adm/systemd-journal — jai_dmesg may fail in the VM"
+
 # ----------------------------------------------- 5c: kernel module (VM) ---
 # The module must be compiled against the KERNEL INSIDE THE ROOTFS (Ubuntu
 # 6.8), not the host's kernel. Two traps handled here:
@@ -133,11 +140,12 @@ fi
 cat <<EOF
 
 [jai] Phase 2 bake-in COMPLETE — rootfs now contains:
-        /usr/local/bin/opencode          (the brain, headless HTTP agent)
-        /etc/jai/opencode.json           (persona + permissions)
-        /etc/jai/IDENTITY.md             (who JAI is)
+        /usr/local/bin/opencode            (the brain, headless HTTP agent)
+        /etc/jai/opencode.json             (persona + permissions + MCP wiring)
+        /etc/jai/IDENTITY.md               (who JAI is)
+        /usr/local/jai/mcp/jai-system.py   (agent↔kernel/OS bridge: MCP tools)
         /lib/modules/$KVER/extra/jai_dev.ko
-        /etc/modules-load.d/jai.conf     (module loads at boot)
+        /etc/modules-load.d/jai.conf       (module loads at boot)
 
 Next steps (docs/NEXT-STEPS.md):
   1. sudo chroot $R passwd jai        # VM login password
@@ -145,5 +153,7 @@ Next steps (docs/NEXT-STEPS.md):
   3. cd vm && ./boot-vm.sh            # first boot with the agent!
   4. ssh -p 2222 jai@localhost, then:
        systemctl status jai-agent     # → active (running)
+       systemctl status jai-link      # → exited (OK) — kernel handshake done
        cat /dev/jai                   # → JAI is awake. Kernel link established.
+       dmesg | grep 'jai: event'      # → boot event from the handshake
 EOF
