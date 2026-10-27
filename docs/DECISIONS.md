@@ -116,3 +116,28 @@ Rules adopted:
 3. The baked build is stamped to /etc/jai/opencode-build
    (version/target/date) so "which variant is in the image" is always
    answerable.
+
+## 2026-10-27 — VERIFIED: v2 server pins — port 4096 + HTTP Basic password
+The re-baked VM boot (15:39 UTC) proved the agent stack end-to-end but
+exposed two v2 server facts our docs had wrong:
+1. `serve` binds a RANDOM port every boot when unconfigured — the VM
+   picked 49374, not the assumed default 4096. The Phase 4 gateway would
+   have chased a moving target.
+2. The JSON API ALWAYS requires auth, even on 127.0.0.1 (no-auth → 401
+   `{"_tag":"UnauthorizedError"}`). The credential is NOT ephemeral:
+   v2 keeps service config (incl. a password) in
+   ~/.config/opencode/service.json and accepts HTTP Basic with any
+   username. Bearer is NOT accepted. (Confirmed empirically against
+   2.2.0: Basic → 200, Bearer/query/x-opencode-password → 401.)
+Reverse-engineered (bun binary strings + live probes) the managed-service
+CLI: `opencode service get|set|unset|start|stop|restart|status`; valid
+config keys: disabled | remote | hostname | port | password | cors | env.
+Fix baked into phase2.sh (step 5a-pin), using v2's own CLI so the file
+format is always version-correct:
+- `opencode service set port 4096`
+- `opencode service set password ${JAI_SERVER_PASSWORD:-jai}`
+- config lands at /var/lib/jai/.config/opencode/service.json, chowned
+  1000:1000; jai-agent.service unchanged (`serve --service` reads it).
+Dev password "jai" is fine for the VM appliance; Phase 5 (hardware) must
+generate a real secret. Gateway must read the password from
+service.json at runtime (agent/gateway/README.md).

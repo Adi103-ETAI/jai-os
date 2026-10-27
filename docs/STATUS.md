@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-10-27 (OpenCode v2 upgrade + verification pass)
+Last updated: 2026-10-27 (Phase 2 VERIFIED in VM: agent live, kernel link up)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -24,10 +24,10 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 - ✅ `vm/make-disk.sh` + `vm/boot-vm.sh` written (fixed live-mount race)
 - ✅ **FIRST VM BOOT 2026-10-27**: serial console OK, `jai` login OK, sshd
   socket up, `jai-agent.service` started (crash-looped — see Phase 2 note)
-- 🟡 opencode SIGILL'd under qemu64 CPU — fixed (baseline build + `-cpu max`);
-  re-bake + re-boot pending to confirm clean
+- ✅ opencode SIGILL under qemu64 CPU — FIXED and confirmed: the re-baked
+  VM runs `opencode v2.2.0` clean (baseline build + `-cpu max` under TCG)
 
-## Phase 2 — Agent layer baked in ⬜ (the layer below is DESIGNED, not installed)
+## Phase 2 — Agent layer baked in ✅ VERIFIED IN VM (boot 2026-10-27 15:39 UTC)
 - 🟡 **Agent layer status:**
   - ✅ `jai-agent.service` written + enabled (runs `opencode serve` as daemon)
   - ✅ `agent/IDENTITY.md` persona + `agent/opencode.json` permissions written
@@ -42,16 +42,25 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
     `etc/systemd/system/jai-link.service` (boot kernel handshake)
   - ✅ `packages.txt` hardened: `systemd` + `systemd-sysv` explicit (minbase
     does not guarantee PID 1), `kmod` for depmod/modprobe
-  - ❌ `opencode` binary NOT inside the rootfs yet → run `sudo ./scripts/phase2.sh`
+  - ✅ `opencode` 2.2.0 (baseline) IS in the rootfs — VM shows
+    `opencode v2.2.0`, `jai-agent.service` active (running, opencode serve)
 - 🟡 `jai_dev` module: compiled for **Kali** kernel — VM runs **Ubuntu 6.8**,
   so the module must be rebuilt *inside the chroot* against Ubuntu headers
   (`phase2.sh` handles this; inside a chroot `uname -r` is the HOST kernel,
   so the Makefile gets an explicit `KDIR=`)
 - ✅ `modules-load.d/jai.conf` so JAI OS loads its module at boot (overlay + phase2.sh)
-- ⬜ re-bake after SIGILL fix: `sudo ./build.sh rootfs` (re-apply overlay →
-  jai-link.service + fstab) → `sudo rm build/rootfs/usr/local/bin/opencode`
-  → `sudo ./scripts/phase2.sh` (baseline build) → `sudo ./vm/make-disk.sh`
-  → `./vm/boot-vm.sh` → verify agent stays active + /dev/jai + jai-link
+- ✅ re-bake + verification DONE (2026-10-27 15:39 UTC VM boot): jai-agent
+  active (PID 247, opencode serve), jai-link handshake OK ("JAI is awake.
+  Kernel link established."), `cat /dev/jai` OK.
+  NOTE: interactive `dmesg` → EPERM is EXPECTED (Ubuntu ships
+  kernel.dmesg_restrict=1). Use `sudo dmesg` or `journalctl -k` (jai is in
+  sudo + systemd-journal/adm; the agent's jai_dmesg MCP tool uses
+  `journalctl -k`, so the agent is unaffected).
+- ✅ agent server pinned (phase2.sh 5a-pin): v2 `serve` binds a RANDOM port
+  when unconfigured (VM picked 49374) and its API always demands HTTP Basic
+  auth → baked `/var/lib/jai/.config/opencode/service.json` via
+  `opencode service set port 4096` + `service set password jai`
+  (see DECISIONS.md + agent/gateway/README.md)
 - ⬜ give the agent credentials (auth.json/model config) → first conversation
   inside JAI OS
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)

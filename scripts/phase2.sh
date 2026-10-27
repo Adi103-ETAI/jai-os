@@ -114,6 +114,24 @@ $(printf '%s' "${OC_SMOKE:-}" | tail -5)
      fix:  sudo rm $R/usr/local/bin/opencode && sudo ./scripts/phase2.sh"
 fi
 
+# --------------------------------------- 5a-pin: server port + password ---
+# OpenCode v2 `serve` binds a RANDOM port on every boot when unconfigured
+# (first VM boot picked 49374) and its JSON API ALWAYS requires auth — even
+# on 127.0.0.1. Pin both through v2's own managed-service config, which
+# lives at $HOME/.config/opencode/service.json (HOME=/var/lib/jai for the
+# agent). Valid keys: disabled|remote|hostname|port|password|cors|env.
+# Verified against 2.2.0: auth = HTTP Basic, any username; no-auth → 401,
+# `curl -u opencode:jai http://127.0.0.1:4096/openapi.json` → 200.
+msg "5a-pin. pinning agent server: port 4096 + fixed gateway password"
+mkdir -p "$R/var/lib/jai"
+chroot "$R" env HOME=/var/lib/jai /usr/local/bin/opencode service set port 4096 \
+  || die "opencode service set port failed — debug with: sudo ./scripts/chroot-run.sh"
+chroot "$R" env HOME=/var/lib/jai /usr/local/bin/opencode service set password "${JAI_SERVER_PASSWORD:-jai}" \
+  || die "opencode service set password failed — debug with: sudo ./scripts/chroot-run.sh"
+# `service set` ran as root inside the chroot — hand the config back to jai
+chown -R 1000:1000 "$R/var/lib/jai/.config"
+msg "    pinned: $(tr -d '\n ' < "$R/var/lib/jai/.config/opencode/service.json")"
+
 # --------------------------------------------------------- 5b: brain cfg ---
 msg "5b. installing JAI brain config → /etc/jai"
 mkdir -p "$R/etc/jai" "$R/var/lib/jai" "$R/var/lib/jai-memory"
