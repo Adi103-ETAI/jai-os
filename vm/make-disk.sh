@@ -16,6 +16,15 @@ trap 'rm -rf "$STAGE"' EXIT
 [ -d "$R/boot" ] || { echo "ERROR: no rootfs at $R — run ./build.sh rootfs && sudo ./setup-rootfs.sh first" >&2; exit 1; }
 [ -f "$R/boot/vmlinuz" ] || { echo "ERROR: no kernel in rootfs /boot" >&2; exit 1; }
 
+# Never rebuild the image under a running VM: QEMU would keep writing to the
+# deleted inode (a ghost disk) and any real data would vanish with the process.
+if pgrep -f "$(basename "$IMG")" >/dev/null 2>&1; then
+  echo "ERROR: a VM is currently running from $IMG — stop it first:" >&2
+  echo "  pkill -f jai-test.img      (or Ctrl+A then X in its serial console)" >&2
+  echo "Then re-run make-disk.sh." >&2
+  exit 1
+fi
+
 # NOTE: we deliberately do NOT unmount anything from the rootfs.
 # Lazy-unmounting bind-mounted /dev subtrees propagated back to the host
 # and took down /dev/pts + /dev/shm (2026-10-26 incident, see DECISIONS.md).
