@@ -68,9 +68,18 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   networkd enablement (phase2 5-net + setup-rootfs), static appliance
   `/etc/resolv.conf` (public resolvers through slirp NAT; `JAI_VM_DNS`
   override), `iproute2` in packages.txt. See DECISIONS.md.
+- ✅ VM NETWORKING **VERIFIED LIVE** (2026-10-27): after the live networkd
+  fix in the running VM, the error progressed from `getaddrinfo EAI_AGAIN`
+  (no network) to "Free usage limit reached" — a response FROM opencode.ai.
+  Full chain proven: DHCP → slirp NAT → DNS → TLS → API. Gotcha logged:
+  `systemctl start systemd-networkd` returns before DHCP has a lease — the
+  first lookups seconds later still fail; the request a minute later works.
 - ⬜ give the agent credentials (auth.json/model config) → first conversation
-  inside JAI OS (blocked only on this now: ring buffer ✅, server pin ✅,
-  network ✅)
+  inside JAI OS — NOW THE ONLY BLOCKER. Finding: the HOST has no
+  `~/.local/share/opencode/auth.json` either (host opencode never logged
+  in/installed). One-time host setup: install opencode + `opencode auth
+  login` (Zen free account = fresh per-account quota; the ANONYMOUS free
+  pool is tiny/shared-per-IP), then scp auth.json into the VM (both homes).
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
 ## Phase 3 — Kernel event system 🟡 RING BUFFER DONE (v0.2.0 module)

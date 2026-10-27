@@ -182,6 +182,34 @@ with `getent`/`curl`, never ping. If your network blocks 1.1.1.1/8.8.8.8,
 re-bake with `sudo env JAI_VM_DNS="<your resolvers>" ./scripts/phase2.sh`.
 
 ### 5e-1. Credentials (auth.json → BOTH homes)
+
+VERIFIED LIVE (2026-10-27): with networking fixed, the conversation error
+became "Free usage limit reached. Connect a provider or subscribe to
+OpenCode Go" — a response FROM opencode.ai. The anonymous free pool is
+tiny and shared per IP; a logged-in (free) Zen account gets a fresh
+per-account quota. The host had NO auth.json either (`scp: stat local
+...: No such file or directory` = host opencode never logged in).
+
+One-time on the HOST (it has a browser — do auth here, not over serial):
+```bash
+command -v opencode || curl -fsSL https://opencode.ai/v2/install | bash
+opencode auth login          # pick "opencode" (Zen); free account is enough
+ls -l ~/.local/share/opencode/auth.json   # must exist now
+```
+Then into the LIVE VM (scp won't create the remote dir — mkdir first):
+```bash
+ssh -p 2222 jai@localhost 'mkdir -p ~/.local/share/opencode'
+scp -P 2222 ~/.local/share/opencode/auth.json jai@localhost:.local/share/opencode/
+# daemon home too (Phase 4 gateway will use it):
+ssh -p 2222 jai@localhost 'sudo mkdir -p /var/lib/jai/.local/share/opencode && \
+  sudo cp ~jai/.local/share/opencode/auth.json /var/lib/jai/.local/share/opencode/ && \
+  sudo chown -R 1000:1000 /var/lib/jai/.local'
+```
+Alternative (durable): a real provider key via `opencode auth login`
+(Anthropic/OpenAI/Google/…) — the sustainable route; free tier WILL keep
+hitting limits. auth.json is a SECRET: never commit it; bake it into
+images only via the host-copy step below.
+
 The brain needs provider credentials. opencode reads them from
 `$HOME/.local/share/opencode/auth.json` — and the VM has TWO homes that
 matter: the daemon runs with `HOME=/var/lib/jai` (the gateway path), your
