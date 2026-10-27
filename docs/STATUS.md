@@ -61,8 +61,16 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   auth → baked `/var/lib/jai/.config/opencode/service.json` via
   `opencode service set port 4096` + `service set password jai`
   (see DECISIONS.md + agent/gateway/README.md)
+- ✅ VM NETWORKING (2026-10-27): minbase rootfs had NO network stack —
+  no iproute2, no DHCP client, no systemd-resolved, networkd never enabled
+  → first conversation died with `getaddrinfo EAI_AGAIN`. Baked:
+  `20-jai.network` overlay (networkd DHCP from 10.0.2.2, UseDNS=no),
+  networkd enablement (phase2 5-net + setup-rootfs), static appliance
+  `/etc/resolv.conf` (public resolvers through slirp NAT; `JAI_VM_DNS`
+  override), `iproute2` in packages.txt. See DECISIONS.md.
 - ⬜ give the agent credentials (auth.json/model config) → first conversation
-  inside JAI OS
+  inside JAI OS (blocked only on this now: ring buffer ✅, server pin ✅,
+  network ✅)
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
 ## Phase 3 — Kernel event system 🟡 RING BUFFER DONE (v0.2.0 module)

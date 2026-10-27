@@ -162,3 +162,38 @@ was possible, so the code favors fully-understood primitives):
   v0.1.0 behavior).
 Remaining Phase 3: kernel→agent PUSH (poll / netlink / uevent) — today
 the agent can only pull.
+
+## 2026-10-27 — Incident #3: the appliance had NO network stack (EAI_AGAIN)
+First-conversation attempt in the VM died with
+`Error: getaddrinfo EAI_AGAIN opencode.ai`. Diagnosis chain: the initial
+systemd-resolved fix failed with "Unit systemd-resolved.service not found"
+— which WAS the diagnosis. Root cause: debootstrap --variant=minbase ships
+no network layer whatsoever:
+- no `iproute2` (no `ip`), no DHCP client, no `systemd-resolved`
+- `/etc/resolv.conf` = whatever debootstrap copied from the BUILD HOST
+  (systemd-resolved stub 127.0.0.53 — nothing listens on it inside the VM)
+- `systemd-networkd` present (ships in the `systemd` package) but never
+  enabled → NIC up with NO IP, NO route; glibc getaddrinfo → EAI_AGAIN.
+Lesson (same family as the SIGILL incident): build-host behavior is NOT
+target behavior — the chroot always had network (host kernel netns), the
+VM does not.
+Adopted design (baked 2026-10-27):
+- `rootfs/overlay/etc/systemd/network/20-jai.network`: networkd DHCP (QEMU
+  slirp server 10.0.2.2 → 10.0.2.15/24), `UseDNS=no`.
+- networkd enablement in BOTH setup-rootfs.sh and phase2.sh 5-net
+  (systemctl enable, raw-symlink fallback), binary existence guarded.
+- `/etc/resolv.conf`: STATIC appliance DNS (1.1.1.1 8.8.8.8 9.9.9.9,
+  `JAI_VM_DNS` env override) written AFTER all chroot apt usage; phase2
+  copies the HOST resolv.conf in at start so build-time apt always works.
+  Rationale: no systemd-resolved in the appliance → glibc reads the file
+  directly; slirp's 10.0.2.3 forwarder is unreliable (EAI_AGAIN) so public
+  resolvers are reached straight through slirp NAT (UDP/53 out is NATed).
+- `iproute2` added to packages.txt (diagnostics only — networkd does not
+  need it).
+- NO networkd-wait-online: boot must never hang on networking; the
+  appliance comes up and the agent simply has no internet if DHCP fails.
+Hardware phase (Phase 5) TODO: revisit DNS for real upstreams (install
+systemd-resolved or a DHCP hook); revisit the "free models reach
+opencode.ai through NAT" assumption for air-gapped deployments.
+Verification probes inside the VM: `getent hosts`, `curl -sI` — NEVER
+ping (slirp ICMP needs host ping_group_range and lies).

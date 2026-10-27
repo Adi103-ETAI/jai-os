@@ -48,6 +48,51 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# ------------------------------------------- 5-net: VM networking (DHCP) ---
+# 2026-10-27 incident: the VM booted with an IP-less NIC and no resolver —
+# debootstrap minbase ships NO network stack, so every lookup inside the VM
+# died with getaddrinfo EAI_AGAIN and the first conversation was impossible.
+# systemd-networkd ships IN the `systemd` package (already installed) — it
+# only needs a .network file + enablement. DNS is static on purpose: no
+# systemd-resolved exists in this appliance, and slirp's 10.0.2.3 forwarder
+# is unreliable → public resolvers straight through slirp NAT.
+# Override the resolvers on the host: sudo env JAI_VM_DNS="9.9.9.9" ./scripts/phase2.sh
+msg "5-net. baking VM networking: systemd-networkd + DHCP, static appliance DNS"
+JAI_VM_DNS="${JAI_VM_DNS:-1.1.1.1 8.8.8.8 9.9.9.9}"
+
+# (1) Build-time resolver: chroot `apt-get` (5c) shares the host network and
+#     must resolve like the host does — whatever worked for debootstrap works
+#     here. Saved aside now; the VM's own DNS is written at the end.
+cp -L /etc/resolv.conf "$R/etc/resolv.conf"
+
+# (2) Network config (idempotent — matches overlay etc/systemd/network/)
+mkdir -p "$R/etc/systemd/network"
+cat > "$R/etc/systemd/network/20-jai.network" <<'EOF'
+# Baked by phase2.sh 5-net (source: rootfs/overlay + scripts/phase2.sh).
+# QEMU slirp DHCP: 10.0.2.2 hands out 10.0.2.15/24. UseDNS=no: the static
+# /etc/resolv.conf is authoritative (no systemd-resolved in this appliance).
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+UseDNS=no
+EOF
+
+# (3) Enable networkd — systemctl enable if possible, raw symlink otherwise
+if chroot "$R" systemctl enable systemd-networkd.service 2>/dev/null; then
+  msg "    systemd-networkd enabled"
+else
+  mkdir -p "$R/etc/systemd/system/multi-user.target.wants"
+  ln -sf /usr/lib/systemd/system/systemd-networkd.service \
+         "$R/etc/systemd/system/multi-user.target.wants/systemd-networkd.service"
+  { [ -x "$R/usr/lib/systemd/systemd-networkd" ] || [ -x "$R/lib/systemd/systemd-networkd" ]; } \
+    || warn "systemd-networkd binary NOT found in rootfs — VM will boot without network"
+  msg "    systemd-networkd enabled via symlink"
+fi
+
 # ------------------------------------------------------------ 5a: agent ---
 # OpenCode v2 (>= 2.0) is installed DIRECTLY from the npm tarball:
 #   - the opencode.ai/install script refuses 2.x ("only installs OpenCode 1")
@@ -193,6 +238,16 @@ printf 'jai_dev\n' > "$R/etc/modules-load.d/jai.conf"
 msg "enabling JAI services (agent + boot-time kernel link)"
 chroot "$R" systemctl enable jai-agent.service jai-link.service 2>/dev/null \
   || warn "systemctl enable failed — is systemd installed and overlay copied? (sudo ./build.sh rootfs)"
+
+# ------------------------------------------------- VM DNS (runtime) -------
+# Overwrite the build-time resolver with the appliance's static public DNS —
+# inside the VM there is no host resolved to lean on. Must happen AFTER every
+# chroot apt-get (5c) so build-time traffic still uses the host resolver.
+msg "    VM resolv.conf → $(echo $JAI_VM_DNS) (static appliance DNS)"
+{
+  echo "# JAI OS appliance DNS — static by design (see overlay 20-jai.network)"
+  for ns in $JAI_VM_DNS; do echo "nameserver $ns"; done
+} > "$R/etc/resolv.conf"
 
 # ------------------------------------------------------------------ done ---
 cat <<EOF

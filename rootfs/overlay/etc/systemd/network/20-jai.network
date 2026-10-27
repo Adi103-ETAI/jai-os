@@ -1,0 +1,29 @@
+# 20-jai.network — VM appliance networking (systemd-networkd, built-in DHCP)
+#
+# WHY THIS FILE EXISTS (2026-10-27 incident):
+#   debootstrap minbase ships NO network stack: no iproute2, no DHCP client,
+#   no systemd-resolved. The VM booted with an IP-less NIC and every DNS
+#   lookup died with getaddrinfo EAI_AGAIN (glibc had no reachable resolver
+#   AND no route out). systemd-networkd is already in the rootfs (ships in
+#   the `systemd` package) — it just needs this file + enablement.
+#
+#   QEMU user-mode net: DHCP server 10.0.2.2 → hands out 10.0.2.15/24.
+#   DNS is deliberately NOT taken from DHCP (UseDNS=no): without
+#   systemd-resolved, networkd cannot program /etc/resolv.conf anyway, and
+#   slirp's 10.0.2.3 forwarder is unreliable. The appliance uses the static
+#   /etc/resolv.conf (baked by setup-rootfs.sh / phase2.sh) pointing at
+#   public resolvers reached directly through slirp NAT.
+#
+# Hardware phase (Phase 5): revisit — either install systemd-resolved or
+# switch to a networkd-managed DNS story for real DHCP upstreams.
+# NOTE: boot does NOT depend on this (no wait-online): if networking fails,
+# the appliance still comes up — the agent just has no internet.
+
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+UseDNS=no

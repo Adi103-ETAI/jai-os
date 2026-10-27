@@ -138,6 +138,50 @@ cat /dev/jai                 # → JAI is awake. Kernel link established.
 ```
 
 ## STEP 5e — First conversation (JAI speaks from inside its own OS)
+
+### 5e-0. NETWORK FIX (2026-10-27) — required before any conversation works
+The first conversation attempt died with `Error: getaddrinfo EAI_AGAIN
+opencode.ai`. Root cause was never DNS-on-its-own: **debootstrap minbase
+ships no network stack at all** — no `iproute2`, no DHCP client, no
+`systemd-resolved`, nothing enables `systemd-networkd`. The VM booted with
+an IP-less NIC and no resolver. `resolvectl`/`systemd-resolved` don't exist
+in this appliance BY DESIGN (minbase) — fixes that assume the standard
+Ubuntu resolver stack are no-ops here.
+
+Fix is now baked in (`20-jai.network` overlay + phase2 5-net + setup-rootfs):
+`systemd-networkd` (already inside the `systemd` package) does DHCP from
+QEMU's 10.0.2.2, and `/etc/resolv.conf` points at public resolvers straight
+through slirp NAT (the 10.0.2.3 forwarder is bypassed entirely).
+
+Re-bake (VM off):
+```bash
+cd ~/jai-os && git pull
+sudo ./scripts/phase2.sh        # 5-net section does the work
+cd vm && sudo ./make-disk.sh && ./boot-vm.sh
+# verify in VM:  getent hosts opencode.ai   &&   curl -sI https://opencode.ai
+```
+Live-fix the RUNNING VM (no re-bake needed) — networkd is already on disk:
+```bash
+sudo mkdir -p /etc/systemd/network
+sudo tee /etc/systemd/network/20-jai.network >/dev/null <<'EOF'
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+UseDNS=no
+EOF
+printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee /etc/resolv.conf
+sudo systemctl start systemd-networkd
+getent hosts opencode.ai         # → an address means you are online
+```
+NOTE: `ping` lies under slirp (ICMP needs host ping_group_range) — probe
+with `getent`/`curl`, never ping. If your network blocks 1.1.1.1/8.8.8.8,
+re-bake with `sudo env JAI_VM_DNS="<your resolvers>" ./scripts/phase2.sh`.
+
+### 5e-1. Credentials (auth.json → BOTH homes)
 The brain needs provider credentials. opencode reads them from
 `$HOME/.local/share/opencode/auth.json` — and the VM has TWO homes that
 matter: the daemon runs with `HOME=/var/lib/jai` (the gateway path), your
