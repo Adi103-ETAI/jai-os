@@ -215,15 +215,15 @@ def tool_memory_write(args: dict) -> str:
 TOOLS = [
     {
         "name": "jai_kernel_status",
-        "description": "Check the kernel link: reads /dev/jai. Proves the agent is connected to the actual kernel.",
+        "description": "Check the kernel link: reads /dev/jai. Drains any pending kernel events first (Phase 3 ring buffer), then returns the status line. Proves the agent is connected to the actual kernel.",
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "jai_kernel_event",
-        "description": "Write a short event (max 63 bytes) to /dev/jai. Lands in the kernel log as 'jai: event: <text>'.",
+        "description": "Write a short event (max 254 bytes) to /dev/jai. It enters the kernel event ring buffer AND the kernel log ('jai: event: <text>').",
         "inputSchema": {
             "type": "object",
-            "properties": {"text": {"type": "string", "maxLength": 63}},
+            "properties": {"text": {"type": "string", "maxLength": 254}},
             "required": ["text"],
         },
     },

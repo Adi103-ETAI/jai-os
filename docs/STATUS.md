@@ -65,14 +65,19 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   inside JAI OS
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
-## Phase 3 — Kernel event system 🟡 FIRST CUT DONE
+## Phase 3 — Kernel event system 🟡 RING BUFFER DONE (v0.2.0 module)
 - ✅ **agent↔kernel/OS bridge:** `agent/mcp/jai-system.py` — zero-dependency
   MCP stdio server (raw JSON-RPC 2.0) exposing /dev/jai read/write, dmesg,
   jai-* service health, sysinfo, and /var/lib/jai-memory to the agent;
   wired into `opencode.json` → mcp; deployed by `phase2.sh` 5b+
 - ✅ `jai-link.service` — boot-time kernel handshake (cat /dev/jai + boot
   event into kernel log); jai user added to adm/systemd-journal for dmesg
-- ⬜ `/dev/jai` event ring buffer in the kernel module (replaces printk)
+- ✅ `/dev/jai` event ring buffer (`jai_dev.c` v0.2.0): 4 KiB static ring —
+  write() pushes an event into the ring AND the kernel log (journalctl -k
+  mirror kept); read() DRAINS pending events, empty → status line via
+  ppos (so `cat /dev/jai` always terminates and stays meaningful);
+  254 B/write cap, overwrite-oldest on overflow. See DECISIONS.md.
+  VM test: `echo "gate opened" > /dev/jai && cat /dev/jai && cat /dev/jai`
 - ⬜ runtime event subscription (kernel → agent push, not just agent pull)
 
 ## Phase 4 — Voice + remote access ⬜

@@ -141,3 +141,24 @@ format is always version-correct:
 Dev password "jai" is fine for the VM appliance; Phase 5 (hardware) must
 generate a real secret. Gateway must read the password from
 service.json at runtime (agent/gateway/README.md).
+
+## 2026-10-27 — Phase 3 step 1: /dev/jai event ring buffer (module v0.2.0)
+Design choices (module rebuilt in-chroot by phase2.sh; no host compile
+was possible, so the code favors fully-understood primitives):
+- Hand-rolled 4 KiB ring (mutex + head/tail/count) instead of kernel
+  kfifo: kfifo's DECLARE/DEFINE/INIT macro variants are easy to get
+  subtly wrong across kernel versions and could not be compile-tested
+  here. ~40 lines we fully understand beat a macro we can't verify.
+- read() = DRAIN (pipe-like): pending events first; when empty, a status
+  line ("JAI is awake..." + events/opens stats) is served via *ppos so
+  readers terminate. This keeps `cat /dev/jai` and the agent's
+  jai_kernel_status MCP tool meaningful at ANY moment (before/after
+  events, boot handshake included).
+- printk mirror KEPT on write: the kernel log stays a durable event
+  journal (journalctl -k); the ring is in-memory and evicts oldest bytes
+  on overflow (newest survive; acceptable for a 1 GB VM appliance).
+- write() cap raised 64 → 254 bytes; trailing newline enforced so cat
+  output stays line-oriented; whole payload reported consumed (matches
+  v0.1.0 behavior).
+Remaining Phase 3: kernel→agent PUSH (poll / netlink / uevent) — today
+the agent can only pull.

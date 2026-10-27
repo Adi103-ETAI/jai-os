@@ -137,14 +137,57 @@ systemctl status jai-agent   # → active (running)
 cat /dev/jai                 # → JAI is awake. Kernel link established.
 ```
 
+## STEP 5e — First conversation (JAI speaks from inside its own OS)
+The brain needs provider credentials. opencode reads them from
+`$HOME/.local/share/opencode/auth.json` — and the VM has TWO homes that
+matter: the daemon runs with `HOME=/var/lib/jai` (the gateway path), your
+interactive shell has `HOME=/home/jai`. Copy auth.json to BOTH — on the
+HOST, with the VM powered off:
+
+```bash
+cd ~/jai-os
+# if opencode on the HOST was never logged in: run `opencode auth login` first
+sudo -H mkdir -p build/rootfs/var/lib/jai/.local/share/opencode \
+             build/rootfs/home/jai/.local/share/opencode
+sudo cp ~/.local/share/opencode/auth.json build/rootfs/var/lib/jai/.local/share/opencode/auth.json
+sudo cp ~/.local/share/opencode/auth.json build/rootfs/home/jai/.local/share/opencode/auth.json
+sudo chown -R 1000:1000 build/rootfs/var/lib/jai/.local build/rootfs/home/jai/.local
+sudo chmod 600 build/rootfs/var/lib/jai/.local/share/opencode/auth.json \
+               build/rootfs/home/jai/.local/share/opencode/auth.json
+cd vm && sudo ./make-disk.sh && ./boot-vm.sh
+```
+
+Inside the VM (serial console or `ssh -p 2222 jai@localhost`):
+```bash
+opencode models                     # what your credentials unlock
+OPENCODE_CONFIG=/etc/jai/opencode.json opencode run --standalone \
+  "JAI, introduce yourself in one sentence"
+```
+- `--standalone` — run a private server instead of attaching to the pinned
+  4096 daemon (that endpoint belongs to the Phase 4 gateway)
+- `OPENCODE_CONFIG=/etc/jai/opencode.json` — identity + permissions + MCP
+- if it complains about a model: add `-m provider/model`
+  (format shown by `opencode models`)
+
 ## STEP 6 — Phase 2b: mkosi bootable image (optional now, needed for hardware)
 Refine `image/mkosi.conf` and run `./build.sh image`. Defer until the
 direct-kernel-boot VM is stable — mkosi is packaging polish, not new function.
 
-## STEP 7 — Phase 3: event ring buffer in the kernel module
-Rewrite `jai_write` to append events into a ring buffer instead of printk;
-`jai_read` drains events. Then write `agent/mcp/jai-system` (small Python
-MCP server) exposing `/dev/jai` + service health to the agent.
+## STEP 7 — Phase 3: kernel event system — FIRST CUT DONE (2026-10-27)
+`jai_dev.c` v0.2.0 ships a 4 KiB event ring buffer: write() pushes an
+event into the ring AND the kernel log; read() drains pending events and
+falls back to a status line when empty (so `cat /dev/jai` always means
+something — the MCP jai_kernel_status tool relies on this). The module is
+rebuilt automatically by `phase2.sh` (step 5c) on every re-bake. Test in
+the VM:
+```bash
+echo "gate opened" > /dev/jai    # event → ring + kernel log
+cat /dev/jai                     # → drains: gate opened
+cat /dev/jai                     # → JAI is awake... + events/opens stats
+journalctl -k | grep 'jai: event'    # durable kernel-log mirror
+```
+Remaining: runtime kernel→agent PUSH (poll / netlink / uevent) so the OS
+can wake the agent — today the agent can only pull.
 
 ## STEP 8 — Phase 4: voice
 `agent/gateway/` — openWakeWord → whisper.cpp → Piper, wired to
