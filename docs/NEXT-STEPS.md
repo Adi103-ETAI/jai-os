@@ -284,3 +284,22 @@ host's bootloader), boot, and JAI says hello on real metal.
 **Golden rule:** everything that makes it "JAI OS" lives in
 `rootfs/overlay/`, `kernel/`, `agent/`, and `scripts/`. The Ubuntu base is
 disposable — `rm -rf build/` and rebuild anytime.
+
+### 5e-2. Free-limit even AFTER login (2026-10-27) → connect a provider key
+Verified: in-VM `opencode auth login` (device flow) WORKED — proof: the
+model list expanded from 9 `*-free` models to the full paid catalog
+(claude/gpt/gemini/glm...). But `opencode run` still returns "Free usage
+limit reached": the `opencode/*-free` pool is tiny/oversubscribed and an
+account barely changes it. The durable fix is the error's own advice —
+"Connect a provider":
+1. Get a key: Google AI Studio (aistudio.google.com → Get API key, has a
+   real free tier), or OpenRouter (one key, `:free` models), or any key
+   you already own (Anthropic/OpenAI/...).
+2. In the VM: `opencode auth login` → select that provider → paste key.
+3. `opencode models` now lists the new provider's models.
+4. Run: `OPENCODE_CONFIG=/etc/jai/opencode.json opencode run --standalone \
+   -m <provider>/<model> "JAI, introduce yourself in one sentence"`
+   (pass `-m` explicitly — the default agent may still pick a `*-free`
+   model). Worth one cheap try first: `-m opencode/glm-5.3-flash-free`.
+CLI gotcha: `opencode model` (no s) is parsed as the `directory` argument
+→ "ENOENT ... chdir '/home/jai' -> 'model'". The subcommand is `models`.
