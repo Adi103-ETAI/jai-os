@@ -74,12 +74,14 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   Full chain proven: DHCP → slirp NAT → DNS → TLS → API. Gotcha logged:
   `systemctl start systemd-networkd` returns before DHCP has a lease — the
   first lookups seconds later still fail; the request a minute later works.
-- ⬜ give the agent credentials (auth.json/model config) → first conversation
-  inside JAI OS — NOW THE ONLY BLOCKER. Finding: the HOST has no
-  `~/.local/share/opencode/auth.json` either (host opencode never logged
-  in/installed). One-time host setup: install opencode + `opencode auth
-  login` (Zen free account = fresh per-account quota; the ANONYMOUS free
-  pool is tiny/shared-per-IP), then scp auth.json into the VM (both homes).
+- ⬜ give the agent credentials → first conversation inside JAI OS — the
+  v2 auth model changed (binary-verified 2026-10-27): `opencode auth login`
+  (device flow) writes the credential into the `credential` table of
+  `~/.local/share/opencode/opencode-next.db` — **auth.json is legacy-only
+  in v2** ("Connected ✓" + no auth.json file is EXPECTED). Canonical: log
+  in from INSIDE the VM (device flow needs no local callback; open the
+  printed URL on the host browser), then copy the DB to /var/lib/jai for
+  the Phase 4 gateway. See NEXT-STEPS 5e-1.
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
 ## Phase 3 — Kernel event system 🟡 RING BUFFER DONE (v0.2.0 module)

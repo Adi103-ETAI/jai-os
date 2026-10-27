@@ -33,6 +33,13 @@ EOF
 
 echo "[jai] hostname: jai"
 echo "jai" > "$R/etc/hostname"
+# /etc/hosts MUST contain the localhost line: minbase does not reliably
+# create /etc/hosts, and without it even `ssh jai@localhost` inside the VM
+# fails with "Could not resolve hostname localhost" (public resolvers are
+# NOT required to answer RFC 6761 names — observed 2026-10-27).
+touch "$R/etc/hosts"
+grep -q "localhost" "$R/etc/hosts" 2>/dev/null || \
+  echo "127.0.0.1 localhost" >> "$R/etc/hosts"
 grep -q jai "$R/etc/hosts" 2>/dev/null || \
   echo "127.0.1.1  jai" >> "$R/etc/hosts"
 

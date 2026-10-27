@@ -181,53 +181,64 @@ NOTE: `ping` lies under slirp (ICMP needs host ping_group_range) — probe
 with `getent`/`curl`, never ping. If your network blocks 1.1.1.1/8.8.8.8,
 re-bake with `sudo env JAI_VM_DNS="<your resolvers>" ./scripts/phase2.sh`.
 
-### 5e-1. Credentials (auth.json → BOTH homes)
+### 5e-1. Credentials — v2 stores auth in a DATABASE, not auth.json
+
+**v2 AUTH MODEL (binary-verified 2026-10-27, strings of the 2.2.0 build):**
+`opencode auth login` → "OpenCode Console" → device flow (URL + code) →
+the credential becomes a ROW in the `credential` table of
+`~/.local/share/opencode/opencode-next.db` (SQLite). The old
+`auth.json` is only a legacy import source (DB migration
+`20260805200742_import_legacy_credentials`). **"Connected ✓" followed by
+`ls: auth.json: No such file or directory` is EXPECTED in v2** — the host
+login DID succeed; there is just no file with that name anymore.
+
+CANONICAL FLOW — log in from INSIDE the VM (no file copying at all).
+The device flow needs no local callback (proven on the host: URL + code),
+so it works over the serial console or SSH:
+```bash
+# IN THE VM (serial or ssh -p 2222 jai@localhost):
+opencode auth login
+#   → Select integration: OpenCode Console
+#   → it prints a NEW code + URL — open the URL in the KALI HOST browser,
+#     approve, done. (Codes are single-use: never reuse the one shown earlier.)
+```
+If the VM was rebooted since the network fix, networkd needs enabling once
+(`start` alone does not survive reboots) — and minbase lacks the localhost
+hosts entry (real gap, fixed in setup-rootfs.sh for future bakes):
+```bash
+sudo systemctl enable --now systemd-networkd   # persistent + immediate
+printf '127.0.0.1 localhost\n' | sudo tee -a /etc/hosts
+getent hosts opencode.ai                        # sanity: resolves now
+```
+Then the daemon home (Phase 4 gateway — the service runs with
+HOME=/var/lib/jai and will read the credential DB from there):
+```bash
+sudo mkdir -p /var/lib/jai/.local/share/opencode
+sudo cp ~/.local/share/opencode/opencode-next.db /var/lib/jai/.local/share/opencode/
+sudo chown -R 1000:1000 /var/lib/jai/.local
+```
+Re-bake note: the DB lives on the VM disk image — it survives VM reboots
+but a full rootfs rebuild (make-disk from a fresh build/rootfs) wipes it:
+either repeat the in-VM login (~1 min), or after a HOST `opencode auth
+login`, copy the HOST's `~/.local/share/opencode/opencode-next.db` into
+`build/rootfs/{home/jai,var/lib/jai}/.local/share/opencode/` (chown
+1000:1000, chmod 600) before make-disk. NEVER commit credential files.
+
+Alternative (durable, recommended long-term): a real provider key via
+`opencode auth login` (Anthropic/OpenAI/Google/…) — the free tier WILL
+keep hitting limits; the error's "Connect a provider" is the sustainable
+route. Host-legacy note: if you prefer file-based bootstrap anyway, the
+host's legacy `auth.json` (v1 layout) is imported by the v2 DB migration
+on first run — but the in-VM device login above is simpler.
 
 VERIFIED LIVE (2026-10-27): with networking fixed, the conversation error
 became "Free usage limit reached. Connect a provider or subscribe to
 OpenCode Go" — a response FROM opencode.ai. The anonymous free pool is
 tiny and shared per IP; a logged-in (free) Zen account gets a fresh
-per-account quota. The host had NO auth.json either (`scp: stat local
-...: No such file or directory` = host opencode never logged in).
-
-One-time on the HOST (it has a browser — do auth here, not over serial):
-```bash
-command -v opencode || curl -fsSL https://opencode.ai/v2/install | bash
-opencode auth login          # pick "opencode" (Zen); free account is enough
-ls -l ~/.local/share/opencode/auth.json   # must exist now
-```
-Then into the LIVE VM (scp won't create the remote dir — mkdir first):
-```bash
-ssh -p 2222 jai@localhost 'mkdir -p ~/.local/share/opencode'
-scp -P 2222 ~/.local/share/opencode/auth.json jai@localhost:.local/share/opencode/
-# daemon home too (Phase 4 gateway will use it):
-ssh -p 2222 jai@localhost 'sudo mkdir -p /var/lib/jai/.local/share/opencode && \
-  sudo cp ~jai/.local/share/opencode/auth.json /var/lib/jai/.local/share/opencode/ && \
-  sudo chown -R 1000:1000 /var/lib/jai/.local'
-```
-Alternative (durable): a real provider key via `opencode auth login`
-(Anthropic/OpenAI/Google/…) — the sustainable route; free tier WILL keep
-hitting limits. auth.json is a SECRET: never commit it; bake it into
-images only via the host-copy step below.
-
-The brain needs provider credentials. opencode reads them from
-`$HOME/.local/share/opencode/auth.json` — and the VM has TWO homes that
-matter: the daemon runs with `HOME=/var/lib/jai` (the gateway path), your
-interactive shell has `HOME=/home/jai`. Copy auth.json to BOTH — on the
-HOST, with the VM powered off:
-
-```bash
-cd ~/jai-os
-# if opencode on the HOST was never logged in: run `opencode auth login` first
-sudo -H mkdir -p build/rootfs/var/lib/jai/.local/share/opencode \
-             build/rootfs/home/jai/.local/share/opencode
-sudo cp ~/.local/share/opencode/auth.json build/rootfs/var/lib/jai/.local/share/opencode/auth.json
-sudo cp ~/.local/share/opencode/auth.json build/rootfs/home/jai/.local/share/opencode/auth.json
-sudo chown -R 1000:1000 build/rootfs/var/lib/jai/.local build/rootfs/home/jai/.local
-sudo chmod 600 build/rootfs/var/lib/jai/.local/share/opencode/auth.json \
-               build/rootfs/home/jai/.local/share/opencode/auth.json
-cd vm && sudo ./make-disk.sh && ./boot-vm.sh
-```
+per-account quota. Gotcha: the ssh/scp helper block from an earlier
+revision belongs in the KALI terminal, not the VM serial console (pasting
+it in-VM just produces harmless "Could not resolve hostname localhost"
+noise — which is ALSO how we found the missing /etc/hosts localhost line).
 
 Inside the VM (serial console or `ssh -p 2222 jai@localhost`):
 ```bash
