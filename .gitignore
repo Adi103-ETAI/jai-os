@@ -13,3 +13,7 @@ image/jarvisos*.zst
 # disk images anywhere
 *.img
 *.raw
+
+# python artifacts
+__pycache__/
+*.pyc
