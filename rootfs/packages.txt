@@ -1,5 +1,12 @@
 # packages.txt — extra apt packages layered onto the Ubuntu 24.04 base
 # (the debootstrap minimal set is implied; this list is what JAI adds)
+#
+# systemd + systemd-sysv are listed EXPLICITLY: debootstrap --variant=minbase
+# does not guarantee them, and without systemd-sysv as /sbin/init there is no
+# boot at all. kmod (depmod/modprobe) is required by modules-load.d/jai.conf.
+systemd
+systemd-sysv
+kmod
 initramfs-tools
 linux-image-generic
 linux-headers-generic

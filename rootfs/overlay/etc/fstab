@@ -1,0 +1,5 @@
+# /etc/fstab — JAI OS
+# Phase 1 target is the QEMU test VM (virtio disk = /dev/vda, direct kernel
+# boot with root=/dev/vda). Phase 2b (mkosi) and Phase 5 (real hardware) will
+# replace this with PARTUUID-based entries.
+/dev/vda  /  ext4  defaults  0  1

@@ -65,9 +65,10 @@ box is sufficient. Test VMs are capped at 1 GB RAM / 1 vCPU by design.
 
 ```
 kernel/jai_dev/      # out-of-tree kernel module: /dev/jai char device
-rootfs/overlay/      # our files layered onto the Ubuntu base
-rootfs/packages.txt  # extra apt packages JAI adds
+rootfs/overlay/      # our files layered onto the Ubuntu base (services, fstab, modules-load.d)
+rootfs/packages.txt  # extra apt packages JAI adds (systemd/sysv + kmod pinned)
 agent/               # opencode config, JAI persona, MCP + gateway stubs
+scripts/             # doctor.sh (pre-flight), phase2.sh (agent bake-in — one command)
 image/mkosi.conf     # bootable image config (Phase 2b)
 vm/                  # test VM scripts + docs
 docs/                # architecture, status, next steps, decisions

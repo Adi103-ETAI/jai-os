@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-10-26 (first build session)
+Last updated: 2026-10-26 (first build session + hardening pass)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -29,13 +29,19 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 - 🟡 **Agent layer status:**
   - ✅ `jai-agent.service` written + enabled (runs `opencode serve` as daemon)
   - ✅ `agent/IDENTITY.md` persona + `agent/opencode.json` permissions written
-  - ❌ `opencode` binary NOT inside the rootfs yet → service fails harmlessly
-    in the VM until Phase 2
-  - ❌ config not yet copied into rootfs (`/etc/jai/`)
+  - ✅ `scripts/phase2.sh` — one-command bake-in (opencode, /etc/jai, in-chroot
+    module build with KDIR override, depmod, modules-load.d)
+  - ✅ `scripts/doctor.sh` — build host pre-flight check
+  - ✅ overlay additions: `etc/modules-load.d/jai.conf`, `etc/fstab`
+  - ✅ `packages.txt` hardened: `systemd` + `systemd-sysv` explicit (minbase
+    does not guarantee PID 1), `kmod` for depmod/modprobe
+  - ❌ `opencode` binary NOT inside the rootfs yet → run `sudo ./scripts/phase2.sh`
 - 🟡 `jai_dev` module: compiled for **Kali** kernel — VM runs **Ubuntu 6.8**,
   so the module must be rebuilt *inside the chroot* against Ubuntu headers
-  before it can load there (needs `linux-headers-6.8.0-147-generic` in chroot)
-- ⬜ `modules-load.d/jai.conf` so JAI OS loads its module at boot
+  (`phase2.sh` handles this; inside a chroot `uname -r` is the HOST kernel,
+  so the Makefile gets an explicit `KDIR=`)
+- ✅ `modules-load.d/jai.conf` so JAI OS loads its module at boot (overlay + phase2.sh)
+- ⬜ `phase2.sh` actually RUN on the build host (needs the host)
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
 ## Phase 3 — Kernel event system ⬜

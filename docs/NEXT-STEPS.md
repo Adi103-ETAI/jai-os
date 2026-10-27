@@ -3,10 +3,17 @@
 Do these in order. Each step lists exact commands. Where `sudo` appears,
 run it in your tmux session (`tmux attach -t jai`).
 
+## STEP 0 — Pre-flight check
+```bash
+cd ~/jai-os && ./scripts/doctor.sh
+```
+Reports toolchain, headers, KVM, disk, and current artifact state.
+Fix anything CRITICAL before continuing.
+
 ## STEP 1 — Pack the disk image (Phase 1 finish)
 ```bash
 cd ~/jai-os/vm
-sudo ./make-disk.sh        # now unmounts /sys /dev first — fixed
+sudo ./make-disk.sh        # rsync -x staging — immune to any chroot mounts
 ```
 Expected: "DONE — boot with ./boot-vm.sh", ~30 seconds.
 
@@ -47,46 +54,65 @@ git push
 ```
 (If push asks for auth, generate a fresh token on GitHub.)
 
-## STEP 5 — Bake the agent layer (Phase 2)
+## STEP 5 — Bake the agent layer (Phase 2) — ONE COMMAND
+```bash
+cd ~/jai-os && sudo ./scripts/phase2.sh
+```
+This automates everything below (opencode install, /etc/jai config,
+module rebuild inside the chroot, depmod, modules-load.d) with the
+incident lessons applied: rbind mounts are immediately `--make-rslave`,
+kernel version is detected from the rootfs (never hardcoded), and the
+module Makefile gets an explicit `KDIR=` (inside a chroot, `uname -r`
+reports the HOST kernel — hardcoding or trusting it silently builds
+against the wrong kernel).
+
+<details><summary>Manual equivalent (legacy — kept for reference)</summary>
+
 ### 5a. opencode into the rootfs
+NOTE: the rootfs is root-owned (created by sudo debootstrap), so the
+installer must run as root:
 ```bash
 cd ~/jai-os
 curl -fsSL https://opencode.ai/install | \
-  PREFIX=build/rootfs/usr/local bash
-sudo chroot build/rootfs chmod +x /usr/local/bin/opencode 2>/dev/null || \
-  sudo chmod +x build/rootfs/usr/local/bin/opencode
+  sudo env PREFIX=build/rootfs/usr/local bash
 ```
 (If the installer misbehaves, download the release binary manually and
 place it at `build/rootfs/usr/local/bin/opencode`.)
 
 ### 5b. JAI's brain config
 ```bash
-sudo mkdir -p build/rootfs/etc/jai
+sudo mkdir -p build/rootfs/etc/jai build/rootfs/var/lib/jai
 sudo cp agent/opencode.json  build/rootfs/etc/jai/
 sudo cp agent/IDENTITY.md    build/rootfs/etc/jai/
-sudo chroot build/rootfs mkdir -p /var/lib/jai
-sudo chroot build/rootfs chown -R jai:jai /var/lib/jai
+sudo chown -R 1000:1000 build/rootfs/var/lib/jai
 ```
 
 ### 5c. Kernel module for the VM's Ubuntu kernel
-The module we built targets Kali's kernel. Rebuild it inside the chroot:
+The module we built targets the HOST kernel. Rebuild it inside the chroot.
+CRITICAL (2026-10-26 incident): rbind mounts MUST be marked rslave
+immediately, or unmounts can propagate and kill the host's /dev/pts +
+cgroupfs. Also pass KDIR= explicitly — chroot `uname -r` is the host kernel.
 ```bash
 sudo mount -t proc proc build/rootfs/proc
 sudo mount --rbind /sys build/rootfs/sys
 sudo mount --rbind /dev build/rootfs/dev
-sudo chroot build/rootfs bash -c '
-  apt-get install -y linux-headers-6.8.0-147-generic build-essential
-'
+sudo mount --make-rslave build/rootfs/sys
+sudo mount --make-rslave build/rootfs/dev
+KVER=$(basename "$(readlink -f build/rootfs/boot/vmlinuz)" | sed 's/^vmlinuz-//')
+sudo chroot build/rootfs bash -c "
+  apt-get update && apt-get install -y linux-headers-$KVER build-essential
+"
 sudo cp -r kernel/jai_dev build/rootfs/root/
-sudo chroot build/rootfs make -C /root/jai_dev
-sudo chroot build/rootfs bash -c '
+sudo chroot build/rootfs make -C /root/jai_dev KDIR=/lib/modules/$KVER/build
+sudo chroot build/rootfs bash -c "
   echo jai_dev > /etc/modules-load.d/jai.conf
-  cp /root/jai_dev/jai_dev.ko /lib/modules/6.8.0-147-generic/extra/ || true
-  depmod -a 6.8.0-147-generic
-'
-# unmount again before next make-disk
+  cp /root/jai_dev/jai_dev.ko /lib/modules/$KVER/extra/
+  depmod -a $KVER
+"
 sudo umount -R build/rootfs/dev build/rootfs/sys build/rootfs/proc
 ```
+
+</details>
 
 ### 5d. Rebuild image + boot — now with the agent
 ```bash
@@ -119,5 +145,5 @@ host's bootloader), boot, and JAI says hello on real metal.
 
 ---
 **Golden rule:** everything that makes it "JAI OS" lives in
-`rootfs/overlay/`, `kernel/`, and `agent/`. The Ubuntu base is disposable —
-`rm -rf build/` and rebuild anytime.
+`rootfs/overlay/`, `kernel/`, `agent/`, and `scripts/`. The Ubuntu base is
+disposable — `rm -rf build/` and rebuild anytime.
