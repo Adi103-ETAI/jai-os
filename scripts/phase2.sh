@@ -64,8 +64,18 @@ OC_VERSION="${JAI_OPENCODE_VERSION:-2.2.0}"   # version pin
 OC_TARGET="${JAI_OPENCODE_TARGET:-linux-x64-baseline}"
 OC_TARBALL_BASE="https://registry.npmjs.org"
 
+# Stamp the baked build so "which variant is in this rootfs" is always
+# answerable (target matters: baseline vs x86-64-v3, see 2026-10-27 SIGILL)
+STAMP="$R/etc/jai/opencode-build"
+
 if [ -x "$R/usr/local/bin/opencode" ]; then
   msg "5a. opencode already in rootfs — skipping install ($("$R/usr/local/bin/opencode" --version 2>/dev/null || echo 'unknown version'))"
+  if [ -f "$STAMP" ]; then
+    msg "    baked build: $(tr '\n' ' ' < "$STAMP")"
+  else
+    warn "no $STAMP — baked variant UNKNOWN (pre-stamp bake)."
+    warn "to guarantee the baseline build:  sudo rm $R/usr/local/bin/opencode && sudo ./scripts/phase2.sh"
+  fi
 else
   msg "5a. installing OpenCode v${OC_VERSION} (${OC_TARGET}) from npm into rootfs"
   TMP_OC="$(mktemp -d)"
@@ -83,6 +93,25 @@ else
   rm -rf "$TMP_OC"
   [ -x "$R/usr/local/bin/opencode" ] || die "opencode install did not produce a usable binary"
   msg "    installed: $("$R/usr/local/bin/opencode" --version 2>/dev/null || ls -lh "$R/usr/local/bin/opencode" | awk '{print $5, $9}')"
+  mkdir -p "$R/etc/jai"
+  printf 'version=%s\ntarget=%s\ndate=%s\n' \
+    "$OC_VERSION" "$OC_TARGET" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STAMP"
+fi
+
+# ------------------------------------------------ 5a-check: smoke test ---
+# Run --version INSIDE the chroot, in the same shape of environment the VM
+# has (phase2 mounted /proc,/sys,/dev above). A broken bake fails HERE, at
+# build time, instead of crash-looping jai-agent at boot time.
+# NOTE: a bare `sudo chroot build/rootfs ...` (no /proc) ALSO aborts Bun
+# standalone exes — that is env, not the binary. Manual chroot work must go
+# through scripts/chroot-run.sh, which mounts the virtual filesystems.
+msg "5a-check. chroot smoke test: opencode --version"
+if OC_SMOKE="$(chroot "$R" /usr/local/bin/opencode --version 2>&1)"; then
+  msg "    OK: opencode ${OC_SMOKE} runs inside the rootfs"
+else
+  die "opencode --version FAILED inside the chroot. Last output:
+$(printf '%s' "${OC_SMOKE:-}" | tail -5)
+     fix:  sudo rm $R/usr/local/bin/opencode && sudo ./scripts/phase2.sh"
 fi
 
 # --------------------------------------------------------- 5b: brain cfg ---
@@ -159,7 +188,9 @@ cat <<EOF
         /etc/modules-load.d/jai.conf       (module loads at boot)
 
 Next steps (docs/NEXT-STEPS.md):
-  1. sudo chroot $R passwd jai        # VM login password
+  1. sudo chroot $R passwd jai        # VM login password (bare chroot is fine for passwd)
+     (inspect the rootfs anytime: sudo ./scripts/chroot-run.sh —
+      a bare chroot has no /proc and Bun binaries abort there)
   2. cd vm && sudo ./make-disk.sh     # pack rootfs → jai-test.img
   3. cd vm && ./boot-vm.sh            # first boot with the agent!
   4. ssh -p 2222 jai@localhost, then:

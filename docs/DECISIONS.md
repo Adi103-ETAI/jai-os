@@ -96,3 +96,23 @@ OS image the target is "anywhere", so:
   JAI_OPENCODE_TARGET=linux-x64)
 - boot-vm.sh sets the CPU model to match the accelerator: `-cpu host`
   under KVM, `-cpu max` under TCG (instead of feature-poor qemu64)
+
+## 2026-10-27 — INCIDENT #2: bare chroot aborts opencode (Bun needs /proc)
+Verifying the baked binary with
+`sudo chroot build/rootfs /usr/local/bin/opencode --version`
+died ~1 ms in: `panic(main thread): abort() called — oh no: Bun has
+crashed`. NOT a broken binary, and NOT the old SIGILL:
+- opencode v2 is a Bun standalone executable; Bun locates its embedded
+  payload via /proc/self/exe.
+- A debootstrap rootfs has no /proc until mounted, and phase2.sh unmounts
+  /proc,/sys,/dev in its EXIT trap — so any MANUAL chroot after phase2
+  is bare → abort. (The same binary passed `--version` on the host.)
+Rules adopted:
+1. Never hand-chroot the rootfs bare. Use `scripts/chroot-run.sh`
+   (mounts /proc,/sys,/dev rbind+rslave, cleans up after itself).
+2. phase2.sh now smoke-tests `opencode --version` INSIDE the chroot at
+   bake time — a bad bake fails the build instead of crash-looping
+   jai-agent at boot.
+3. The baked build is stamped to /etc/jai/opencode-build
+   (version/target/date) so "which variant is in the image" is always
+   answerable.

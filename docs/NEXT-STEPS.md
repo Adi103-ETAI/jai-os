@@ -23,6 +23,13 @@ cd ~/jai-os
 sudo chroot build/rootfs passwd jai
 ```
 Remember this password — you'll use it to SSH into the VM.
+TIP (2026-10-27): a bare chroot like this is fine for `passwd`, but NOT
+for running Bun-based binaries — opencode aborts there without /proc.
+To run or inspect things in the rootfs use:
+```bash
+sudo ./scripts/chroot-run.sh                            # interactive shell
+sudo ./scripts/chroot-run.sh /usr/local/bin/opencode --version
+```
 
 ## STEP 3 — Boot JAI OS (first boot!)
 In tmux:
@@ -65,6 +72,10 @@ kernel version is detected from the rootfs (never hardcoded), and the
 module Makefile gets an explicit `KDIR=` (inside a chroot, `uname -r`
 reports the HOST kernel — hardcoding or trusting it silently builds
 against the wrong kernel).
+It also STAMPS the baked opencode build to `/etc/jai/opencode-build`
+(version/target/date) and smoke-tests `opencode --version` inside the
+chroot — a bad bake now fails the build immediately instead of
+crash-looping `jai-agent` at boot.
 
 <details><summary>Manual equivalent (legacy — kept for reference)</summary>
 
