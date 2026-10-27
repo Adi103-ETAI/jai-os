@@ -64,3 +64,21 @@ Makefile ccache quoting bug found and fixed during first build.
 Module is boot-scoped (not persisted) — Phase 2 adds modules-load.d
 integration so JAI OS loads its own kernel module at boot.
 Next: Phase 1 — debootstrap Ubuntu 24.04 minimal rootfs, boot in 1 GB VM.
+
+## 2026-10-27 — Agent core: OpenCode v2 (2.2.0), pinned, installed from npm tarball
+User flagged that opencode.ai/install yields 1.19.4 while latest is 2.2.0.
+Verified against the real binaries:
+- opencode.ai/install REFUSES 2.x by design ("only installs OpenCode 1")
+- v2 lives on its own channel: opencode.ai/v2/install → npm @opencode/cli-<target>
+- the v2 installer has no PREFIX support → phase2.sh downloads the npm
+  tarball directly (pinned via JAI_OPENCODE_VERSION, default 2.2.0)
+- v2 config schema: permission{} → permissions[] ({action,resource,effect}),
+  bash → shell, mcp.<n>.enabled → mcp.servers.<n>.disabled, theme removed
+  (agent/opencode.json rewritten in v2 format; verified loading natively
+  via `opencode debug config` — no migration artifacts)
+- `serve --service` flag and default port 4096 unchanged → jai-agent.service
+  and the Phase 4 gateway target stay valid
+- NEW in v2: `serve` prints a one-time server password at startup (stdout →
+  systemd journal). Gateway must authenticate; see agent/gateway/README.md.
+- CPU baseline: no AVX2 → linux-x64-baseline build (Athlon 3050U has AVX2,
+  detection is dynamic either way)

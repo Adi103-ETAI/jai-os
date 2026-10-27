@@ -1,27 +1,32 @@
-// opencode.json — JAI persona for the agent core
+// opencode.json — JAI persona for the agent core (OpenCode v2 format, tested on 2.2.0)
 // NOTE: this is the Phase-2 target config for JAI OS images.
 // The model/provider lines will be finalized when the image is built;
 // on this build host, opencode keeps using its own working config.
+//
+// v2 schema changes vs v1 (verified against the 2.2.0 binary):
+//   permission (object)  → permissions (array of {action, resource, effect})
+//   action "bash"        → action "shell"
+//   mcp.<name>.enabled   → mcp.servers.<name>.disabled
+//   theme                → removed
 {
   "$schema": "https://opencode.ai/config.json",
-  "theme": "system",
   "instructions": [
     "/etc/jai/IDENTITY.md"
   ],
   "mcp": {
-    "jai-system": {
-      "type": "local",
-      "command": ["python3", "/usr/local/jai/mcp/jai-system.py"],
-      "enabled": true
+    "servers": {
+      "jai-system": {
+        "type": "local",
+        "command": ["python3", "/usr/local/jai/mcp/jai-system.py"],
+        "disabled": false
+      }
     }
   },
-  "permission": {
-    "edit": "ask",
-    "bash": {
-      "*": "ask",
-      "cat /dev/jai*": "allow",
-      "echo * | tee /dev/jai*": "allow",
-      "systemctl status jai-*": "allow"
-    }
-  }
+  "permissions": [
+    { "action": "edit",  "resource": "*",                      "effect": "ask" },
+    { "action": "shell", "resource": "*",                      "effect": "ask" },
+    { "action": "shell", "resource": "cat /dev/jai*",           "effect": "allow" },
+    { "action": "shell", "resource": "echo * | tee /dev/jai*",  "effect": "allow" },
+    { "action": "shell", "resource": "systemctl status jai-*",  "effect": "allow" }
+  ]
 }

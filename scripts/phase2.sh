@@ -49,29 +49,39 @@ cleanup() {
 trap cleanup EXIT
 
 # ------------------------------------------------------------ 5a: agent ---
+# OpenCode v2 (>= 2.0) is installed DIRECTLY from the npm tarball:
+#   - the opencode.ai/install script refuses 2.x ("only installs OpenCode 1")
+#   - the v2 installer (opencode.ai/v2/install) has no PREFIX support —
+#     it hardcodes $HOME/.opencode/bin, useless for baking into a rootfs
+# A pinned, explicit tarball download is the reproducible path for an OS image.
+OC_VERSION="${JAI_OPENCODE_VERSION:-2.2.0}"   # override: sudo env JAI_OPENCODE_VERSION=x.y.z ./scripts/phase2.sh
+OC_TARBALL_BASE="https://registry.npmjs.org"
+
 if [ -x "$R/usr/local/bin/opencode" ]; then
-  msg "5a. opencode already in rootfs — skipping install"
+  msg "5a. opencode already in rootfs — skipping install ($("$R/usr/local/bin/opencode" --version 2>/dev/null || echo 'unknown version'))"
 else
-  msg "5a. installing opencode into rootfs (official installer)"
-  if ! curl -fsSL https://opencode.ai/install | PREFIX="$R/usr/local" bash; then
-    warn "official installer failed — trying GitHub release binary fallback"
-    ASSET="$(curl -fsSL https://api.github.com/repos/sst/opencode/releases/latest \
-      | grep -oE '"browser_download_url": *"[^"]*(linux-x64)\.(tar\.gz|zip)"' \
-      | head -1 | cut -d'"' -f4 || true)"
-    [ -n "${ASSET:-}" ] || die "could not fetch opencode — install manually into $R/usr/local/bin/opencode (see docs/NEXT-STEPS.md)"
-    TMP="$(mktemp -d)"
-    curl -fsSL "$ASSET" -o "$TMP/oc.bin"
-    case "$ASSET" in
-      *.tar.gz) tar -xzf "$TMP/oc.bin" -C "$TMP" ;;
-      *.zip)    unzip -o "$TMP/oc.bin" -d "$TMP" ;;
-    esac
-    OC_BIN="$(find "$TMP" -type f -name opencode | head -1)"
-    [ -n "$OC_BIN" ] || die "opencode binary not found inside downloaded archive"
-    install -m 0755 "$OC_BIN" "$R/usr/local/bin/opencode"
-    rm -rf "$TMP"
+  # Same CPU heuristic as the official installer: no AVX2 → x86-64-v3 baseline build
+  if grep -qwi avx2 /proc/cpuinfo 2>/dev/null; then
+    OC_TARGET="linux-x64"
+  else
+    OC_TARGET="linux-x64-baseline"
   fi
+  msg "5a. installing OpenCode v${OC_VERSION} (${OC_TARGET}) from npm into rootfs"
+  TMP_OC="$(mktemp -d)"
+  for SCOPE in "@opencode" "@opencode-ai"; do   # @opencode-ai = pre-rename scope, kept as fallback
+    OC_URL="$OC_TARBALL_BASE/$SCOPE/cli-$OC_TARGET/-/cli-$OC_TARGET-$OC_VERSION.tgz"
+    if curl -fsSL --max-time 120 "$OC_URL" -o "$TMP_OC/cli.tgz"; then
+      msg "    $OC_URL"
+      break
+    fi
+    OC_URL=""
+  done
+  [ -n "$OC_URL" ] || die "OpenCode v$OC_VERSION ($OC_TARGET) not found on npm — set JAI_OPENCODE_VERSION or install manually into $R/usr/local/bin/opencode"
+  tar -xzf "$TMP_OC/cli.tgz" -C "$TMP_OC" package/bin/opencode
+  install -m 0755 "$TMP_OC/package/bin/opencode" "$R/usr/local/bin/opencode"
+  rm -rf "$TMP_OC"
   [ -x "$R/usr/local/bin/opencode" ] || die "opencode install did not produce a usable binary"
-  msg "    opencode installed: $(ls -lh "$R/usr/local/bin/opencode" | awk '{print $5, $9}')"
+  msg "    installed: $("$R/usr/local/bin/opencode" --version 2>/dev/null || ls -lh "$R/usr/local/bin/opencode" | awk '{print $5, $9}')"
 fi
 
 # --------------------------------------------------------- 5b: brain cfg ---

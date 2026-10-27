@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-10-26 (first build session + hardening pass)
+Last updated: 2026-10-27 (OpenCode v2 upgrade + verification pass)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -31,6 +31,10 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   - ✅ `agent/IDENTITY.md` persona + `agent/opencode.json` permissions written
   - ✅ `scripts/phase2.sh` — one-command bake-in (opencode, /etc/jai, in-chroot
     module build with KDIR override, depmod, modules-load.d)
+  - ✅ OpenCode **v2 (2.2.0) pinned** — installed from npm tarball directly
+    (v1 installer refuses 2.x; v2 installer has no PREFIX); config rewritten
+    in v2 schema (`permissions[]`, `mcp.servers.*`), verified loading on
+    the real 2.2.0 binary
   - ✅ `scripts/doctor.sh` — build host pre-flight check
   - ✅ overlay additions: `etc/modules-load.d/jai.conf`, `etc/fstab`,
     `etc/systemd/system/jai-link.service` (boot kernel handshake)
