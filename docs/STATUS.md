@@ -13,7 +13,7 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   (kernel log evidence captured; see DECISIONS.md)
 - ✅ Git history started; pushed to GitHub
 
-## Phase 1 — Rootfs boots in test VM 🟡 ~90%
+## Phase 1 — Rootfs boots in test VM ✅ COMPLETE (first boot 2026-10-27)
 - ✅ `debootstrap` Ubuntu 24.04 (noble) minimal rootfs — 1.5 GB at `build/rootfs/`
 - ✅ `setup-rootfs.sh` transformed it into JAI OS:
   - apt sources (noble + updates + security) written
@@ -22,8 +22,10 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   - `/var/lib/jai-memory` created
   - `jai-agent.service` **enabled via systemctl**
 - ✅ `vm/make-disk.sh` + `vm/boot-vm.sh` written (fixed live-mount race)
-- ⬜ Disk image built (`make-disk.sh` re-run pending after the unmount fix)
-- ⬜ First VM boot + SSH login not yet done
+- ✅ **FIRST VM BOOT 2026-10-27**: serial console OK, `jai` login OK, sshd
+  socket up, `jai-agent.service` started (crash-looped — see Phase 2 note)
+- 🟡 opencode SIGILL'd under qemu64 CPU — fixed (baseline build + `-cpu max`);
+  re-bake + re-boot pending to confirm clean
 
 ## Phase 2 — Agent layer baked in ⬜ (the layer below is DESIGNED, not installed)
 - 🟡 **Agent layer status:**
@@ -46,7 +48,12 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   (`phase2.sh` handles this; inside a chroot `uname -r` is the HOST kernel,
   so the Makefile gets an explicit `KDIR=`)
 - ✅ `modules-load.d/jai.conf` so JAI OS loads its module at boot (overlay + phase2.sh)
-- ⬜ `phase2.sh` actually RUN on the build host (needs the host)
+- ⬜ re-bake after SIGILL fix: `sudo ./build.sh rootfs` (re-apply overlay →
+  jai-link.service + fstab) → `sudo rm build/rootfs/usr/local/bin/opencode`
+  → `sudo ./scripts/phase2.sh` (baseline build) → `sudo ./vm/make-disk.sh`
+  → `./vm/boot-vm.sh` → verify agent stays active + /dev/jai + jai-link
+- ⬜ give the agent credentials (auth.json/model config) → first conversation
+  inside JAI OS
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
 ## Phase 3 — Kernel event system 🟡 FIRST CUT DONE

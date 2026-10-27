@@ -54,18 +54,19 @@ trap cleanup EXIT
 #   - the v2 installer (opencode.ai/v2/install) has no PREFIX support —
 #     it hardcodes $HOME/.opencode/bin, useless for baking into a rootfs
 # A pinned, explicit tarball download is the reproducible path for an OS image.
-OC_VERSION="${JAI_OPENCODE_VERSION:-2.2.0}"   # override: sudo env JAI_OPENCODE_VERSION=x.y.z ./scripts/phase2.sh
+# Target build. DO NOT probe the build host's CPU for AVX2 — the binary runs
+# in the VM (or on real hardware later), not on this host. The QEMU TCG
+# default model (qemu64) has NO AVX2, so the v3 build SIGILLs at runtime
+# even when the host has AVX2 (2026-10-27 first-boot incident).
+# Default: baseline build — runs on any x86-64. Override if you know the
+# target CPU is x86-64-v3 capable: sudo env JAI_OPENCODE_TARGET=linux-x64 ./scripts/phase2.sh
+OC_VERSION="${JAI_OPENCODE_VERSION:-2.2.0}"   # version pin
+OC_TARGET="${JAI_OPENCODE_TARGET:-linux-x64-baseline}"
 OC_TARBALL_BASE="https://registry.npmjs.org"
 
 if [ -x "$R/usr/local/bin/opencode" ]; then
   msg "5a. opencode already in rootfs — skipping install ($("$R/usr/local/bin/opencode" --version 2>/dev/null || echo 'unknown version'))"
 else
-  # Same CPU heuristic as the official installer: no AVX2 → x86-64-v3 baseline build
-  if grep -qwi avx2 /proc/cpuinfo 2>/dev/null; then
-    OC_TARGET="linux-x64"
-  else
-    OC_TARGET="linux-x64-baseline"
-  fi
   msg "5a. installing OpenCode v${OC_VERSION} (${OC_TARGET}) from npm into rootfs"
   TMP_OC="$(mktemp -d)"
   for SCOPE in "@opencode" "@opencode-ai"; do   # @opencode-ai = pre-rename scope, kept as fallback
@@ -140,11 +141,11 @@ mkdir -p "$R/etc/modules-load.d"
 printf 'jai_dev\n' > "$R/etc/modules-load.d/jai.conf"
 
 # --------------------------------------------------------- service check ---
-if chroot "$R" systemctl is-enabled jai-agent.service >/dev/null 2>&1; then
-  msg "jai-agent.service: enabled"
-else
-  warn "jai-agent.service NOT enabled — re-run sudo ./setup-rootfs.sh"
-fi
+# Enable explicitly — the overlay copy alone does not enable units, and a
+# rootfs built before jai-link.service existed will not have it enabled.
+msg "enabling JAI services (agent + boot-time kernel link)"
+chroot "$R" systemctl enable jai-agent.service jai-link.service 2>/dev/null \
+  || warn "systemctl enable failed — is systemd installed and overlay copied? (sudo ./build.sh rootfs)"
 
 # ------------------------------------------------------------------ done ---
 cat <<EOF

@@ -82,3 +82,17 @@ Verified against the real binaries:
   systemd journal). Gateway must authenticate; see agent/gateway/README.md.
 - CPU baseline: no AVX2 → linux-x64-baseline build (Athlon 3050U has AVX2,
   detection is dynamic either way)
+
+## 2026-10-27 — INCIDENT: opencode SIGILL in VM (first boot) → baseline build is the default
+First VM boot succeeded (serial console, jai login, sshd socket) but
+`opencode` died instantly with `Illegal instruction`. Root cause chain:
+1. phase2.sh probed AVX2 on the BUILD HOST (Athlon Zen 1 → has AVX2)
+   and downloaded the x86-64-v3 `linux-x64` build;
+2. the binary runs in the VM, where boot-vm.sh (TCG) used the default
+   `qemu64` CPU model — no AVX2 → SIGILL.
+Lesson: feature-probe the TARGET CPU, never the build host — and for an
+OS image the target is "anywhere", so:
+- phase2.sh now defaults to `linux-x64-baseline` (override:
+  JAI_OPENCODE_TARGET=linux-x64)
+- boot-vm.sh sets the CPU model to match the accelerator: `-cpu host`
+  under KVM, `-cpu max` under TCG (instead of feature-poor qemu64)

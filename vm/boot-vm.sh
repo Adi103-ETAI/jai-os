@@ -26,8 +26,18 @@ else
   echo "[jai] fix:  sudo usermod -aG kvm $(id -un) && newgrp kvm" >&2
 fi
 
+# CPU model follows the accelerator: host passthrough under KVM; under TCG
+# use max (all features TCG can emulate) instead of the feature-poor qemu64
+# default — a guest built with AVX2 SIGILLs on qemu64.
+if [ "$ACCEL" = kvm ]; then
+  CPU_MODEL="host"
+else
+  CPU_MODEL="max"
+fi
+
 exec qemu-system-x86_64 \
   -accel "$ACCEL" \
+  -cpu "$CPU_MODEL" \
   -m 1024 -smp 1 \
   -kernel "$K" -initrd "$I" \
   -append "root=/dev/vda rw console=ttyS0 loglevel=4" \
