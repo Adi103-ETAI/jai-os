@@ -1,0 +1,5 @@
+# jai-mcp - the ONLY privileged action the JAI agent has.
+# Gate 2 of the double lock: Gate 1 lives in agent/mcp/jai-mcp.c
+# (service_restart refuses anything not matching jai-*).
+# Install with mode 440 (phase2.sh 5m does `install -m 0440`).
+jai ALL=(root) NOPASSWD: /usr/bin/systemctl restart jai-*

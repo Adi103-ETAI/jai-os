@@ -272,6 +272,46 @@ journalctl -k | grep 'jai: event'    # durable kernel-log mirror
 Remaining: runtime kernel→agent PUSH (poll / netlink / uevent) so the OS
 can wake the agent — today the agent can only pull.
 
+## STEP 7b — Phase 3b: the C hands (jai-mcp) — IN THE VM, one command
+
+`agent/mcp/jai-mcp.c` supersedes `jai-system.py` (same tool names, plus
+`disk_usage`, `service_status`, and the double-locked `service_restart`).
+Live-install it into the RUNNING VM straight from the repo (the VM's
+network works — use it; no more giant copy-paste blocks):
+
+```bash
+# IN THE VM (serial or ssh -p 2222 jai@localhost):
+curl -fsSL https://raw.githubusercontent.com/Adi103-ETAI/jai-os/main/scripts/vm-jai-mcp.sh | sudo bash
+```
+(The script: installs gcc+libjson-c-dev, fetches the C source, compiles to
+`/usr/bin/jai-mcp`, installs the sudoers allowlist + heartbeat test rig,
+adds jai to adm/systemd-journal, and refreshes `/etc/jai/opencode.json` +
+`/etc/jai/IDENTITY.md` with a `.bak` backup. Read it before piping it to
+bash — it is short.)
+
+Then:
+```bash
+exit                                          # relogin: journal group needs a new session
+# protocol smoke test (no AI involved):
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+  '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"jai_sysinfo","arguments":{}}}' \
+  | /usr/bin/jai-mcp
+# the brain picks up the hands:
+OPENCODE_CONFIG=/etc/jai/opencode.json opencode run --standalone \
+  "Use your jai-mcp tools: report jai_sysinfo, disk_usage on /, and whether jai-heartbeat.service is healthy."
+OPENCODE_CONFIG=/etc/jai/opencode.json opencode run --standalone \
+  "restart jai-heartbeat.service, then confirm its state"
+OPENCODE_CONFIG=/etc/jai/opencode.json opencode run --standalone \
+  "write the event 'first touch' to /dev/jai with jai_kernel_event, then read the kernel log with jai_dmesg and show me both"
+```
+PASS = JAI cites measured numbers, the restart succeeds via the sudo
+allowlist, and the kernel log shows `jai: event: first touch`. Expect the
+occasional 503 from the free pool — retry, or `-m openrouter/google/gemma-4-31b-it:free`.
+
+For future image bakes, `phase2.sh` step 5m now builds jai-mcp inside the
+chroot and deploys the sudoers + heartbeat units automatically.
+
 ## STEP 8 — Phase 4: voice
 `agent/gateway/` — openWakeWord → whisper.cpp → Piper, wired to
 `http://127.0.0.1:4096` (jai-agent). Bake Tailscale into the image.

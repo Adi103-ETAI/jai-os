@@ -24,3 +24,7 @@ polkitd
 sudo
 tmux
 htop
+# libjson-c5 - runtime lib for /usr/bin/jai-mcp (agent/mcp/jai-mcp.c, Phase 3b).
+# Listed explicitly so a toolchain cleanup after the chroot build can never
+# autoremove it. (libjson-c-dev is installed+purged transiently by phase2.sh 5m.)
+libjson-c5

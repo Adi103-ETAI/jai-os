@@ -228,9 +228,46 @@ cp "$R/root/jai_dev/jai_dev.ko" "$R/lib/modules/$KVER/extra/jai_dev.ko"
 rm -rf "$R/root/jai_dev"
 chroot "$R" depmod -a "$KVER"
 
-msg "    modules-load.d/jai.conf → module loads at every boot"
+msg "    modules-load.d/jai.conf -> module loads at every boot"
 mkdir -p "$R/etc/modules-load.d"
 printf 'jai_dev\n' > "$R/etc/modules-load.d/jai.conf"
+
+# ------------------------------------- 5m: jai-mcp (C hands, Phase 3b) -----
+# The C MCP server replaces jai-system.py as the canonical agent<->OS
+# bridge (the python file stays as the readable reference). Built INSIDE
+# the chroot against the rootfs glibc - build-host != target, the recurring
+# lesson. build-essential is already present from 5c; only libjson-c-dev is
+# added, then purged, with the runtime lib pinned so autoremove can never
+# strip it (also listed explicitly in packages.txt).
+msg "5m. building jai-mcp (C MCP server) inside chroot"
+chroot "$R" env DEBIAN_FRONTEND=noninteractive bash -c '
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends libjson-c-dev
+'
+cp "$JAI_ROOT/agent/mcp/jai-mcp.c" "$R/root/jai-mcp.c"
+chroot "$R" bash -c 'gcc -O2 -Wall -Wextra -o /root/jai-mcp /root/jai-mcp.c -ljson-c'
+[ -x "$R/root/jai-mcp" ] || die "jai-mcp build failed inside chroot"
+chroot "$R" strip /root/jai-mcp
+install -m 0755 "$R/root/jai-mcp" "$R/usr/bin/jai-mcp"
+rm -f "$R/root/jai-mcp" "$R/root/jai-mcp.c"
+msg "    /usr/bin/jai-mcp installed ($("$R/usr/bin/jai-mcp" </dev/null 2>&1 | head -1))"
+
+chroot "$R" env DEBIAN_FRONTEND=noninteractive bash -c '
+  apt-get purge -y -qq libjson-c-dev >/dev/null 2>&1 || true
+  apt-get install -y -qq --no-install-recommends libjson-c5 >/dev/null
+'
+chroot "$R" bash -c 'ldconfig -p | grep -q libjson-c.so.5' \
+  || warn "libjson-c.so.5 NOT found in rootfs - jai-mcp will not start in the VM"
+
+# Gate 2 of the double lock: sudo allowlist (mode 440 is MANDATORY for sudoers.d)
+install -D -m 0440 "$JAI_ROOT/rootfs/overlay/etc/sudoers.d/jai-mcp" "$R/etc/sudoers.d/jai-mcp"
+chroot "$R" visudo -cf /etc/sudoers.d/jai-mcp || die "sudoers fragment invalid"
+
+# practice-dummy unit so service_status / service_restart have a safe target
+install -m 0644 "$JAI_ROOT/rootfs/overlay/etc/systemd/system/jai-heartbeat.service" "$R/etc/systemd/system/jai-heartbeat.service"
+install -m 0644 "$JAI_ROOT/rootfs/overlay/etc/systemd/system/jai-heartbeat.timer"   "$R/etc/systemd/system/jai-heartbeat.timer"
+chroot "$R" systemctl enable jai-heartbeat.timer 2>/dev/null \
+  || warn "could not enable jai-heartbeat.timer in the rootfs"
 
 # --------------------------------------------------------- service check ---
 # Enable explicitly — the overlay copy alone does not enable units, and a
@@ -256,7 +293,9 @@ cat <<EOF
         /usr/local/bin/opencode            (the brain, headless HTTP agent)
         /etc/jai/opencode.json             (persona + permissions + MCP wiring)
         /etc/jai/IDENTITY.md               (who JAI is)
-        /usr/local/jai/mcp/jai-system.py   (agent↔kernel/OS bridge: MCP tools)
+        /usr/bin/jai-mcp                   (the hands: C MCP server, Phase 3b)
+        /etc/sudoers.d/jai-mcp             (the only privileged door, mode 440)
+        /usr/local/jai/mcp/jai-system.py   (reference python bridge, disabled)
         /lib/modules/$KVER/extra/jai_dev.ko
         /etc/modules-load.d/jai.conf       (module loads at boot)
 

@@ -1,0 +1,8 @@
+# jai-heartbeat.timer - fires the practice-dummy heartbeat every 5 minutes
+[Unit]
+Description=Fire jai-heartbeat every 5 minutes
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+[Install]
+WantedBy=timers.target

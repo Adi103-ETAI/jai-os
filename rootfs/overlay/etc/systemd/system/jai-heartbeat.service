@@ -1,0 +1,8 @@
+# jai-heartbeat.service - practice-dummy unit for the agent's
+# service_status / service_restart MCP tools (Phase 3b).
+# Deliberately harmless: appends a timestamp line, nothing else.
+[Unit]
+Description=JAI heartbeat - timestamped event for jai-mcp to observe
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'mkdir -p /var/lib/jai && date "+%F %T jai-heartbeat" >> /var/lib/jai/heartbeat.log'

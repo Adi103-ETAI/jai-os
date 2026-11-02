@@ -1,32 +1,61 @@
-// opencode.json — JAI persona for the agent core (OpenCode v2 format, tested on 2.2.0)
-// NOTE: this is the Phase-2 target config for JAI OS images.
-// The model/provider lines will be finalized when the image is built;
-// on this build host, opencode keeps using its own working config.
+// opencode.json - JAI agent config (OpenCode v2 format, verified on 2.2.0)
 //
-// v2 schema changes vs v1 (verified against the 2.2.0 binary):
-//   permission (object)  → permissions (array of {action, resource, effect})
-//   action "bash"        → action "shell"
-//   mcp.<name>.enabled   → mcp.servers.<name>.disabled
-//   theme                → removed
+// v2 schema facts (binary-verified, see docs/DECISIONS.md):
+//   permissions is an ARRAY of {action, resource, effect}; action is "shell"
+//   mcp.servers.<name>.disabled  (NOT v1's mcp.<name>.enabled)
+//
+// The provider block below is PROVEN WORKING in the VM (2026-10-27):
+// OpenRouter free tier, output capped at 4096 so the credit pre-flight
+// always passes on a $0 balance. Credentials are NOT in the image - run
+// `opencode auth login` inside the VM (first-boot ritual), see
+// docs/NEXT-STEPS.md STEP 5e / 5e-2.
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
     "/etc/jai/IDENTITY.md"
   ],
+  "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
   "mcp": {
     "servers": {
+      "jai-mcp": {
+        "type": "local",
+        "command": ["/usr/bin/jai-mcp"],
+        "disabled": false
+      },
       "jai-system": {
         "type": "local",
         "command": ["python3", "/usr/local/jai/mcp/jai-system.py"],
-        "disabled": false
+        "disabled": true
+      }
+    }
+  },
+  "provider": {
+    "openrouter": {
+      "models": {
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "name": "Nemotron 3 Ultra 550B (free)",
+          "tool_call": true,
+          "limit": { "context": 1000000, "output": 4096 }
+        },
+        "google/gemma-4-31b-it:free": {
+          "name": "Gemma 4 31B (free, fast)",
+          "tool_call": true,
+          "limit": { "context": 262144, "output": 4096 }
+        },
+        "cohere/north-mini-code:free": {
+          "name": "North Mini Code (free, coder)",
+          "tool_call": true,
+          "limit": { "context": 256000, "output": 4096 }
+        }
       }
     }
   },
   "permissions": [
-    { "action": "edit",  "resource": "*",                      "effect": "ask" },
-    { "action": "shell", "resource": "*",                      "effect": "ask" },
+    { "action": "edit",  "resource": "*",                       "effect": "ask" },
+    { "action": "shell", "resource": "*",                       "effect": "ask" },
     { "action": "shell", "resource": "cat /dev/jai*",           "effect": "allow" },
     { "action": "shell", "resource": "echo * | tee /dev/jai*",  "effect": "allow" },
-    { "action": "shell", "resource": "systemctl status jai-*",  "effect": "allow" }
+    { "action": "shell", "resource": "systemctl status jai-*",  "effect": "allow" },
+    { "action": "shell", "resource": "sudo -n /usr/bin/systemctl restart jai-*", "effect": "allow" }
   ]
 }

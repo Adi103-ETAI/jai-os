@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-10-27 (Phase 2 VERIFIED in VM: agent live, kernel link up)
+Last updated: 2026-10-28 (Phase 3b: C MCP server `jai-mcp`; provider-verified first conversation)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -82,6 +82,13 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   in from INSIDE the VM (device flow needs no local callback; open the
   printed URL on the host browser), then copy the DB to /var/lib/jai for
   the Phase 4 gateway. See NEXT-STEPS 5e-1.
+- ✅ FIRST CONVERSATION (2026-10-28, live VM): after in-VM provider logins
+  (OpenRouter + Google AI Studio), `opencode run --standalone` answered.
+  Two ops lessons baked into `agent/opencode.json`: v2 config wants
+  `mcp.servers.<name>.disabled` (NOT v1's `mcp.<name>.enabled`), and
+  OpenRouter pre-authorizes the model's full max output against the
+  balance — free models + `limit.output: 4096` sidesteps the credit check
+  entirely ("requested 128000, could only afford 7469" incident).
 - ⬜ mkosi bootable image (optional — direct-kernel boot works for testing)
 
 ## Phase 3 — Kernel event system 🟡 RING BUFFER DONE (v0.2.0 module)
@@ -89,6 +96,18 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   MCP stdio server (raw JSON-RPC 2.0) exposing /dev/jai read/write, dmesg,
   jai-* service health, sysinfo, and /var/lib/jai-memory to the agent;
   wired into `opencode.json` → mcp; deployed by `phase2.sh` 5b+
+- ✅ **Phase 3b — the C hands:** `agent/mcp/jai-mcp.c` — the bridge rewritten
+  in C against libjson-c, supersedes jai-system.py (same tool names, kept
+  as reference) and ADDS `disk_usage`, `service_status`, `service_restart`.
+  Security posture: charset allowlists on every argument, fork+execvp only
+  (never popen), fixed-size buffers, json-c for all JSON, unprivileged
+  user. The ONE privileged action (restart `jai-*` units) is double-locked:
+  prefix check in code + `/etc/sudoers.d/jai-mcp` (mode 440). Built inside
+  the chroot (`phase2.sh` 5m) against the rootfs glibc; live-VM path:
+  `scripts/vm-jai-mcp.sh` (fetches from the repo over the VM's own network
+  — no more giant pastes). Known limit: under jai-agent.service,
+  NoNewPrivileges blocks sudo by design (gateway phase gets a helper).
+  See agent/mcp/README.md.
 - ✅ `jai-link.service` — boot-time kernel handshake (cat /dev/jai + boot
   event into kernel log); jai user added to adm/systemd-journal for dmesg
 - ✅ `/dev/jai` event ring buffer (`jai_dev.c` v0.2.0): 4 KiB static ring —
