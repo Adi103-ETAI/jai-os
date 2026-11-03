@@ -11,6 +11,8 @@ not a kernel fork. Borrow the base, own the layers above.
 │  jai-gateway   : voice/IO front-end (Phase 4) │
 │  jai-agent     : opencode serve, the brain    │
 │  jai-mcp       : custom MCP tool servers      │
+│  jai-eventd    : kernel event capture         │
+│                  (reflex arc, Phase 3c)       │
 │  kernel/jai_dev: /dev/jai kernel interface    │
 ├───────────────────────────────────────────────┤
 │ BASE (borrowed)                               │
@@ -53,9 +55,9 @@ patch kernel internals) would take 1.5–2.5 h and are explicitly out of scope.
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Toolchain + first kernel module | in progress |
-| 1 | Rootfs boots in test VM | next |
-| 2 | Overlay + agent baked into image | planned |
-| 3 | /dev/jai event ring + agent integration | planned |
+| 0 | Toolchain + first kernel module | ✅ |
+| 1 | Rootfs boots in test VM | ✅ |
+| 2 | Overlay + agent baked into image | ✅ verified in VM |
+| 3 | /dev/jai event ring + agent integration | ✅ 3b hands + 3c reflex arc (jai-eventd) + 3d ops tooling |
 | 4 | Voice I/O + remote access | planned |
 | 5 | First real-hardware boot | planned |

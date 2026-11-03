@@ -312,6 +312,65 @@ occasional 503 from the free pool — retry, or `-m openrouter/google/gemma-4-31
 For future image bakes, `phase2.sh` step 5m now builds jai-mcp inside the
 chroot and deploys the sudoers + heartbeat units automatically.
 
+### 5e-3. Brain model pinned to Zen (2026-11-02) — what we learned the hard way
+- `model` is now `opencode/mimo-v2.6-flash-free` (OpenCode Zen free tier),
+  live-VM verified with MCP tools + one-shot reports. `autoupdate: false`
+  is set — the appliance pins its brain; upgrades go through
+  `scripts/vm-upgrade-brain.sh` (db backup → upgrade → smoke test), never
+  unattended self-updates.
+- v2.2.0 stores credentials in `~/.local/share/opencode/opencode*.db`
+  (SQLite). There is NO auth.json — "Connected ✓" plus a missing
+  auth.json file is EXPECTED, not a bug.
+- **Service-account API keys carry NO free quota**: login succeeds, the
+  first call returns "Free usage limit reached". Log in with the personal
+  console account (device flow) instead — that quota works.
+- The `jai` wrapper is now shipped by the repo
+  (`rootfs/overlay/usr/local/bin/jai`): one-shot brain call with
+  `OPENCODE_CONFIG` baked in and a per-call override:
+  `JAI_MODEL=<provider/model> jai "..."`.
+- Refresh the whole JAI layer from repo main anytime (temp-download →
+  compile-before-install → .bak everything):
+```bash
+curl -fsSL https://raw.githubusercontent.com/Adi103-ETAI/jai-os/main/scripts/vm-update.sh | sudo bash
+```
+
+## STEP 7c — Phase 3c: the reflex arc (jai-eventd + jai_events)
+
+Until now the agent could only PULL from the kernel when a human asked.
+`jai-eventd` closes that gap: it drains /dev/jai continuously into
+`/var/lib/jai/events.jsonl` (with ring-overflow GAP markers, so the brain
+knows when telemetry has holes), and the new `jai_events` MCP tool serves
+the tail. Design + format: `agent/eventd/README.md`. Why a drain-poller
+and not a blocking reader: the device NEVER blocks — an empty ring
+returns the status frame — see DECISIONS.md 2026-11-02.
+
+Install into the RUNNING VM, one command (like 7b):
+```bash
+curl -fsSL https://raw.githubusercontent.com/Adi103-ETAI/jai-os/main/scripts/vm-eventd.sh | sudo bash
+```
+(The script compiles jai-eventd in the VM, installs the unit + logrotate,
+fixes the heartbeat unit — the old `date "+%F %T"` in ExecStart could
+never work, systemd eats % — replaces it with `jai-heartbeat-beat`, which
+also records the kernel-event delta per beat.)
+
+Acceptance (run in order):
+```bash
+systemctl status jai-eventd                        # → active (running)
+echo "reflex test" > /dev/jai && sleep 1 && tail -1 /var/lib/jai/events.jsonl
+#   → {"ts":"...","seq":N,"text":"reflex test"}
+curl -fsSL https://raw.githubusercontent.com/Adi103-ETAI/jai-os/main/scripts/vm-doctor.sh | bash
+#   → 'appliance healthy' (kernel link round-trip, hands, reflex arc, timers, brain)
+jai "Use jai_events to report the last 3 kernel events."
+#   PASS = the brain cites the measured records via the hands, no shell fallback
+```
+Also verify reboot persistence: `sudo systemctl reboot`, then
+`systemctl is-enabled jai-eventd && tail -2 /var/lib/jai/heartbeat.log`
+(the beat line now carries `events_delta=`).
+
+Future bakes: `phase2.sh` step 5n builds jai-eventd inside the chroot and
+enables the unit automatically; `provision.sh` runs the whole pipeline
+(rootfs → setup → phase2 → disk) in one command.
+
 ## STEP 8 — Phase 4: voice
 `agent/gateway/` — openWakeWord → whisper.cpp → Piper, wired to
 `http://127.0.0.1:4096` (jai-agent). Bake Tailscale into the image.

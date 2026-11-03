@@ -197,3 +197,69 @@ systemd-resolved or a DHCP hook); revisit the "free models reach
 opencode.ai through NAT" assumption for air-gapped deployments.
 Verification probes inside the VM: `getent hosts`, `curl -sI` — NEVER
 ping (slirp ICMP needs host ping_group_range and lies).
+
+## 2026-11-02 — Brain model: OpenCode Zen free tier, device-flow only
+`"model": "opencode/mimo-v2.6-flash-free"` (live-VM verified: MCP tools
+called through the hands, one-shot reports work). Field findings, now
+policy:
+- v2.2.0 keeps credentials in `~/.local/share/opencode/opencode*.db`
+  (SQLite). There is NO auth.json in v2 — "Connected ✓" with no file is
+  EXPECTED, not an error.
+- Service-account API keys carry NO free quota: login succeeds, the first
+  call returns "Free usage limit reached". The personal DEVICE FLOW
+  (console account) does have quota. Headless-safe: the flow prints a
+  URL + code, no local callback needed.
+- `"autoupdate": false` — the appliance pins its brain. Unattended
+  self-updates on a headless appliance are unattended breakage (v1→v2
+  config schema drift already bit once). Upgrades happen via
+  `scripts/vm-upgrade-brain.sh` only: db snapshot → upgrade → smoke test
+  → rollback path printed on failure. Schema migrations are one-way,
+  hence the snapshot.
+- No restarts needed after a brain swap: opencode is stateless-per-call
+  (spawned per `jai` / per MCP invocation, exits when done). Only
+  jai-eventd is a resident JAI process.
+- The `jai` wrapper ships via overlay (`rootfs/overlay/usr/local/bin/jai`)
+  with a per-call override: `JAI_MODEL=<provider/model> jai "..."`.
+- OpenRouter provider block kept in opencode.json as a fallback catalog
+  (`limit.output: 4096` sidesteps the credit pre-flight on $0).
+
+## 2026-11-02 — Reflex arc: drain-poll daemon, NOT a blocking reader
+`jai_dev.c` v0.2.0 semantics: /dev/jai NEVER blocks — an empty ring
+returns the status frame (then EOF). A classic blocking reader is
+impossible, so `jai-eventd` is a drain-poller: open → drain → close →
+sleep 500 ms. Chosen over netlink/uevent push (STEP 7's other
+candidates): zero kernel changes, survives module reloads, and appliance
+event rates make 2 Hz polling effectively real-time.
+The status frame's kernel-side counter ("events: N total") is the
+overflow detector: accepted-minus-captured > 0 between polls means the
+4 KiB ring overwrote oldest bytes → a `{"gap":K}` record lands in
+`/var/lib/jai/events.jsonl`. Telemetry may have holes; the brain is TOLD
+(never silently truncated). Accepted v0.2.0 protocol limits: an event
+beginning "JAI is awake." is indistinguishable from a status frame (don't
+write those); embedded newlines in event text make gap accounting
+approximate. Real framing = jai_dev v0.3, only if ever needed.
+All JSONL is built with json-c (house rule — the file faces untrusted
+event text); jai_events reads only the last 64 KB tail (bounded work).
+
+## 2026-11-02 — Heartbeat: % specifier trap + beat script with event delta
+systemd parses % in ExecStart as a unit specifier: `date "+%F %T"` in
+jai-heartbeat.service never worked right (it needs %%). The logic moved
+to `rootfs/overlay/usr/local/bin/jai-heartbeat-beat` — a plain shell file
+with no escaping games — which now also records the kernel-event delta
+per beat (`events_delta=` from events.jsonl line counts, logrotate-safe
+via copytruncate detection). Rule of thumb: if an ExecStart needs date
+formatting, it wants to be a script.
+
+## 2026-11-02 — Ops layer: doctor, update, upgrade, provision (Phase 3d)
+- `scripts/vm-doctor.sh`: one-shot VM self-test (kernel link round-trip,
+  hands, reflex arc, timers, brain, sudoers). Run after every change.
+- `scripts/vm-update.sh`: refresh the whole JAI layer from repo main.
+  Hard rules after the truncated-config incident: download to temp FIRST,
+  compile C BEFORE installing, .bak every replaced file, validate sudoers
+  before it lands. Replaces all ad-hoc "curl one file into /etc" moves.
+- `provision.sh`: one-command rebuild chaining the existing pipeline
+  (doctor → rootfs → setup-rootfs → phase2 → make-disk; `--fresh` wipes
+  build/). The Ubuntu base is disposable; credentials never are — they
+  stay out of images by design (in-VM device-flow login re-run).
+- Kernel build artifacts untracked (.gitignore existed; the .ko/.o/.cmd
+  files were committed before it and kept shipping noise).

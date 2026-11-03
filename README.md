@@ -64,14 +64,21 @@ box is sufficient. Test VMs are capped at 1 GB RAM / 1 vCPU by design.
 ## Repo layout
 
 ```
-kernel/jai_dev/      # out-of-tree kernel module: /dev/jai char device
-rootfs/overlay/      # our files layered onto the Ubuntu base (services, fstab, modules-load.d)
+kernel/jai_dev/      # out-of-tree kernel module: /dev/jai char device + event ring
+rootfs/overlay/      # our files layered onto the Ubuntu base (services, sudoers,
+                     #   logrotate, /usr/local/bin scripts: jai wrapper, beat)
 rootfs/packages.txt  # extra apt packages JAI adds (systemd/sysv + kmod pinned)
-agent/               # opencode config, JAI persona, MCP + gateway stubs
-scripts/             # doctor.sh (pre-flight), phase2.sh (agent bake-in — one command)
+agent/               # opencode config, JAI persona, jai wrapper, MCP + eventd + gateway
+  agent/mcp/         #   jai-mcp.c — the hands (C MCP server, 11 tools)
+  agent/eventd/      #   jai-eventd.c — the reflex arc (kernel events -> JSONL)
+scripts/             # doctor.sh (host pre-flight), phase2.sh (bake-in),
+                     #   vm-jai-mcp.sh / vm-eventd.sh (live-VM installers),
+                     #   vm-doctor.sh (VM self-test), vm-update.sh (safe refresh),
+                     #   vm-upgrade-brain.sh (pinned brain upgrades)
 image/mkosi.conf     # bootable image config (Phase 2b)
 vm/                  # test VM scripts + docs
 docs/                # architecture, status, next steps, decisions
 build.sh             # entry point: deps | module | rootfs | image
+provision.sh         # ONE-COMMAND rebuild: doctor -> rootfs -> setup -> phase2 -> disk
 setup-rootfs.sh      # rootfs → JAI OS transformation (needs sudo)
 ```

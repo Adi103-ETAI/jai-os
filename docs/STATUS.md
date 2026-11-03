@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-10-28 (Phase 3b: C MCP server `jai-mcp`; provider-verified first conversation)
+Last updated: 2026-11-02 (Phase 3c reflex arc + Phase 3d ops tooling shipped; brain pinned to Zen free model)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -116,7 +116,30 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   ppos (so `cat /dev/jai` always terminates and stays meaningful);
   254 B/write cap, overwrite-oldest on overflow. See DECISIONS.md.
   VM test: `echo "gate opened" > /dev/jai && cat /dev/jai && cat /dev/jai`
-- ⬜ runtime event subscription (kernel → agent push, not just agent pull)
+- ✅ **Phase 3c — the reflex arc (2026-11-02, code shipped):** `jai-eventd`
+  drains /dev/jai continuously into `/var/lib/jai/events.jsonl`. Because
+  the device never blocks (empty ring → status frame), the daemon is a
+  drain-poller; the status frame's kernel-side `events: N total` counter
+  gives overflow detection → `{"gap":K}` records, so the brain is TOLD
+  when telemetry has holes. JSONL built with json-c (house rule). New
+  `jai_events` MCP tool (jai-mcp v1.1.0) serves the tail; `jai_services`
+  now covers jai-eventd + jai-heartbeat.* too. Deploy: `phase2.sh` 5n
+  (bake) or `scripts/vm-eventd.sh` (live VM). Design: agent/eventd/README.md.
+- ✅ **Phase 3d — ops tooling (2026-11-02, shipped):** `scripts/vm-doctor.sh`
+  (one-shot VM self-test: kernel link round-trip, hands, reflex arc,
+  timers, brain, sudoers), `scripts/vm-update.sh` (validated whole-layer
+  refresh: temp download → compile before install → .bak everything),
+  `scripts/vm-upgrade-brain.sh` (pinned opencode upgrades with db backup +
+  smoke test), `provision.sh` (one-command rebuild: doctor → rootfs →
+  setup → phase2 → disk; `--fresh` for from-scratch). Heartbeat %-bug
+  fixed by moving the logic into `jai-heartbeat-beat` (plain shell, no
+  unit-specifier escaping; adds event delta per beat).
+- ✅ Brain pinned (2026-11-02, live-VM verified): `opencode/mimo-v2.6-flash-free`
+  (Zen free tier) via DEVICE-FLOW login; service-account keys carry NO
+  free quota (auth succeeds, first call hits the limit). Credentials live
+  in `~/.local/share/opencode/opencode*.db` (v2 has NO auth.json).
+  `autoupdate: false` — upgrades only via vm-upgrade-brain.sh.
+  `jai` wrapper now ships via overlay (JAI_MODEL per-call override).
 
 ## Phase 4 — Voice + remote access ⬜
 - ⬜ jai-gateway: openWakeWord + whisper.cpp (STT) + Piper (TTS), event-driven
