@@ -4,17 +4,31 @@
 //   permissions is an ARRAY of {action, resource, effect}; action is "shell"
 //   mcp.servers.<name>.disabled  (NOT v1's mcp.<name>.enabled)
 //
-// The provider block below is PROVEN WORKING in the VM (2026-10-27):
-// OpenRouter free tier, output capped at 4096 so the credit pre-flight
-// always passes on a $0 balance. Credentials are NOT in the image - run
-// `opencode auth login` inside the VM (first-boot ritual), see
-// docs/NEXT-STEPS.md STEP 5e / 5e-2.
+// Brain (2026-11-02, live-VM verified): OpenCode Zen free model
+// "opencode/mimo-v2.6-flash-free" via DEVICE-FLOW login. Field findings
+// that are now policy (docs/NEXT-STEPS.md 5e-3):
+//   - v2.2.0 keeps credentials in ~/.local/share/opencode/opencode*.db
+//     (SQLite). There is NO auth.json in v2 - "Connected" + no file is
+//     expected, not an error.
+//   - service-account API keys carry NO free quota (auth succeeds, first
+//     call returns "Free usage limit reached"). Use the personal
+//     console account via `opencode auth login` -> device flow.
+//   - autoupdate=false: the appliance pins its brain. Upgrades are a
+//     deliberate act (scripts/vm-upgrade-brain.sh: db backup -> upgrade
+//     -> smoke test). The v1->v2 schema drift already broke configs once;
+//     unattended self-updates on a headless appliance are unattended
+//     breakage.
+// The openrouter provider block below stays as a FALLBACK catalog
+// (limit.output 4096 sidesteps the OpenRouter credit pre-flight on $0).
+// Per-call model override: JAI_MODEL=<provider/model> jai "..."
+// Discover candidates: opencode models | grep free
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
     "/etc/jai/IDENTITY.md"
   ],
-  "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+  "model": "opencode/mimo-v2.6-flash-free",
+  "autoupdate": false,
   "mcp": {
     "servers": {
       "jai-mcp": {

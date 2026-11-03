@@ -1,0 +1,17 @@
+#!/bin/sh
+# jai - talk to the JAI brain, one shot.
+#
+#   jai "report jai_sysinfo, disk_usage on /, and heartbeat health"
+#   JAI_MODEL=openrouter/google/gemma-4-31b-it:free jai "..."   # one-call model override
+#
+# Spawns a private opencode server for the duration of the call
+# (--standalone): the pinned port-4096 daemon belongs to the Phase 4
+# gateway, not to human one-shots. Stateles-per-call: a brain binary
+# update takes effect on the NEXT jai invocation - no restarts, ever.
+set -eu
+export OPENCODE_CONFIG="${OPENCODE_CONFIG:-/etc/jai/opencode.json}"
+
+if [ "${JAI_MODEL:-}" != "" ]; then
+    exec opencode run --standalone -m "$JAI_MODEL" "$@"
+fi
+exec opencode run --standalone "$@"
