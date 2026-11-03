@@ -1,0 +1,27 @@
+# jai-eventd.service - the reflex arc: drains /dev/jai continuously into
+# /var/lib/jai/events.jsonl (Phase 3c). Design notes: agent/eventd/README.md
+# - /dev/jai never blocks (empty ring returns a status frame), so the daemon
+#   is a drain-poller, not a blocking reader.
+# - Restart=always covers module reloads and boots where the module loads
+#   after this unit: a failed open is retried every tick, not fatal.
+[Unit]
+Description=JAI event daemon - kernel events from /dev/jai to events.jsonl
+After=systemd-modules-load.service
+Wants=systemd-modules-load.service
+
+[Service]
+Type=simple
+User=jai
+Group=jai
+ExecStart=/usr/bin/jai-eventd /dev/jai /var/lib/jai/events.jsonl 500
+Restart=always
+RestartSec=2
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/jai
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

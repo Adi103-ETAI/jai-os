@@ -1,0 +1,13 @@
+# JAI appliance logs (Phase 3c).
+# copytruncate: jai-eventd opens/appends/closes per record (no long-held fd),
+# so rotation never needs to signal the daemon.
+/var/lib/jai/events.jsonl /var/lib/jai/heartbeat.log {
+    weekly
+    maxsize 10M
+    rotate 4
+    compress
+    delaycompress
+    copytruncate
+    missingok
+    notifempty
+}

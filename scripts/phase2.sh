@@ -269,6 +269,41 @@ install -m 0644 "$JAI_ROOT/rootfs/overlay/etc/systemd/system/jai-heartbeat.timer
 chroot "$R" systemctl enable jai-heartbeat.timer 2>/dev/null \
   || warn "could not enable jai-heartbeat.timer in the rootfs"
 
+# ------------------------------------- 5n: jai-eventd (reflex arc, 3c) -----
+# The capture daemon: drains /dev/jai continuously into
+# /var/lib/jai/events.jsonl so the brain can answer "what happened lately?"
+# through the jai_events MCP tool instead of shell guesses. Same chroot
+# lesson as 5m: build against the rootfs glibc, pin the runtime lib,
+# purge -dev after. Design: agent/eventd/README.md.
+msg "5n. building jai-eventd (event capture daemon) inside chroot"
+chroot "$R" env DEBIAN_FRONTEND=noninteractive bash -c '
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends libjson-c-dev
+'
+cp "$JAI_ROOT/agent/eventd/jai-eventd.c" "$R/root/jai-eventd.c"
+chroot "$R" bash -c 'gcc -O2 -Wall -Wextra -o /root/jai-eventd /root/jai-eventd.c -ljson-c'
+[ -x "$R/root/jai-eventd" ] || die "jai-eventd build failed inside chroot"
+chroot "$R" strip /root/jai-eventd
+install -m 0755 "$R/root/jai-eventd" "$R/usr/bin/jai-eventd"
+rm -f "$R/root/jai-eventd" "$R/root/jai-eventd.c"
+msg "    /usr/bin/jai-eventd installed ($($R/usr/bin/jai-eventd --version))"
+
+chroot "$R" env DEBIAN_FRONTEND=noninteractive bash -c '
+  apt-get purge -y -qq libjson-c-dev >/dev/null 2>&1 || true
+  apt-get install -y -qq --no-install-recommends libjson-c5 >/dev/null
+'
+
+install -m 0644 "$JAI_ROOT/rootfs/overlay/etc/systemd/system/jai-eventd.service" \
+  "$R/etc/systemd/system/jai-eventd.service"
+install -m 0644 "$JAI_ROOT/rootfs/overlay/etc/logrotate.d/jai" "$R/etc/logrotate.d/jai"
+install -D -m 0755 "$JAI_ROOT/rootfs/overlay/usr/local/bin/jai-heartbeat-beat" \
+  "$R/usr/local/bin/jai-heartbeat-beat"
+install -D -m 0755 "$JAI_ROOT/rootfs/overlay/usr/local/bin/jai" "$R/usr/local/bin/jai"
+mkdir -p "$R/var/lib/jai"
+chown -R 1000:1000 "$R/var/lib/jai"
+chroot "$R" systemctl enable jai-eventd.service 2>/dev/null \
+  || warn "could not enable jai-eventd.service in the rootfs"
+
 # --------------------------------------------------------- service check ---
 # Enable explicitly — the overlay copy alone does not enable units, and a
 # rootfs built before jai-link.service existed will not have it enabled.
@@ -294,7 +329,11 @@ cat <<EOF
         /etc/jai/opencode.json             (persona + permissions + MCP wiring)
         /etc/jai/IDENTITY.md               (who JAI is)
         /usr/bin/jai-mcp                   (the hands: C MCP server, Phase 3b)
+        /usr/bin/jai-eventd                (the reflex arc: event capture, Phase 3c)
+        /usr/local/bin/jai                 (one-shot brain wrapper, JAI_MODEL override)
+        /usr/local/bin/jai-heartbeat-beat  (heartbeat pulse + event delta)
         /etc/sudoers.d/jai-mcp             (the only privileged door, mode 440)
+        /etc/logrotate.d/jai               (events.jsonl + heartbeat.log rotation)
         /usr/local/jai/mcp/jai-system.py   (reference python bridge, disabled)
         /lib/modules/$KVER/extra/jai_dev.ko
         /etc/modules-load.d/jai.conf       (module loads at boot)
@@ -307,7 +346,9 @@ Next steps (docs/NEXT-STEPS.md):
   3. cd vm && ./boot-vm.sh            # first boot with the agent!
   4. ssh -p 2222 jai@localhost, then:
        systemctl status jai-agent     # → active (running)
+       systemctl status jai-eventd    # → active (running) - reflex arc live
        systemctl status jai-link      # → exited (OK) — kernel handshake done
        cat /dev/jai                   # → JAI is awake. Kernel link established.
        dmesg | grep 'jai: event'      # → boot event from the handshake
+       echo "reflex test" > /dev/jai && sleep 1 && tail -1 /var/lib/jai/events.jsonl
 EOF
