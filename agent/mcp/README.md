@@ -34,8 +34,9 @@ lesson). Live-VM install without a re-bake: `scripts/vm-jai-mcp.sh`.
 |---|---|
 | `jai_kernel_status` | read `/dev/jai` -> drains pending events, or the kernel's status line when the ring is empty |
 | `jai_kernel_event` | write <=254 bytes to `/dev/jai` -> ring + kernel log `jai: event: ...`, returns the read-back as proof |
+| `jai_events` | tail of `/var/lib/jai/events.jsonl` - recent kernel events captured by jai-eventd (Phase 3c reflex arc); GAP records surface ring-overflow losses |
 | `jai_dmesg` | kernel log tail (`journalctl -k`, `dmesg` fallback; needs `systemd-journal` group) |
-| `jai_services` | active/enabled state of jai-agent, jai-gateway, jai-link |
+| `jai_services` | active/enabled state of jai-agent, jai-eventd, jai-gateway, jai-heartbeat, jai-link |
 | `jai_sysinfo` | host, kernel, uptime, load, memory, root disk, UTC time |
 | `jai_memory_read` / `jai_memory_write` | persistent memory in `/var/lib/jai-memory/<key>` (64 KB cap, strict key charset) |
 | `disk_usage` | statvfs on an absolute path - no subprocess |

@@ -29,6 +29,8 @@
  *   disk_usage          statvfs on an absolute path (no subprocess)
  *   service_status      systemctl status + last 10 journal lines (read-only)
  *   service_restart     the one privileged door (double-locked, jai-* only)
+ *   jai_events          recent kernel events from jai-eventd's JSONL
+ *                       capture (Phase 3c reflex arc) - v1.1.0
  *
  * Daemon caveat: jai-agent.service sets NoNewPrivileges=yes, so when the
  * MCP server runs under the hardened daemon, sudo CANNOT elevate (setuid is
@@ -62,7 +64,7 @@
 #include <unistd.h>
 
 #define SERVER_NAME    "jai-mcp"
-#define SERVER_VERSION "1.0.0"
+#define SERVER_VERSION "1.1.0"
 
 #define MAX_LINE      (1u << 20)   /* cap on one inbound JSON-RPC message */
 #define OUT_CAP       8192         /* cap on captured subprocess output  */
@@ -72,9 +74,12 @@
 #define MAX_EVENT     254          /* jai_dev.c v0.2.0 per-write cap      */
 #define MAX_MEMORY    (64 * 1024)  /* per-key memory cap                  */
 #define MAX_KEY       64
+#define EVENTS_FILE   "/var/lib/jai/events.jsonl"  /* jai-eventd capture  */
+#define EVENTS_TAIL   (64 * 1024)  /* max JSONL tail read per call        */
 
 static const char *JAI_UNITS[] = {
-    "jai-agent.service", "jai-gateway.service", "jai-link.service"
+    "jai-agent.service", "jai-eventd.service", "jai-gateway.service",
+    "jai-heartbeat.service", "jai-heartbeat.timer", "jai-link.service"
 };
 
 /* ------------------------- bounded string helpers ----------------------- */
@@ -631,6 +636,127 @@ static json_object *tool_memory_write(json_object *args)
     return text_result(out, 0);
 }
 
+/* ------------------------------ event stream ---------------------------- */
+
+/* Reads the tail of /var/lib/jai/events.jsonl (written by jai-eventd,
+ * Phase 3c) and renders the last N records as readable text. Only the last
+ * EVENTS_TAIL bytes are read - bounded work no matter how long the file
+ * grows. Lines that fail to parse are shown raw; gap records surface
+ * ring-overflow losses so the brain knows the stream has holes. */
+static json_object *tool_events(json_object *args)
+{
+    long want = arg_int(args, "count", 10);
+    char out[48 * 1024]; size_t got = 0;
+    char *tail, **lines;
+    struct stat st;
+    off_t sz = 0;
+    ssize_t r;
+    long nlines = 0, first, i;
+    int fd;
+
+    if (want < 1)   want = 1;
+    if (want > 100) want = 100;
+
+    fd = open(EVENTS_FILE, O_RDONLY);
+    if (fd < 0) {
+        bfmt(out, &got, sizeof out,
+             "no event stream at %s (%s)\nhints: is the capture daemon up? "
+             "systemctl status jai-eventd\nfire a test event: "
+             "echo hello > /dev/jai, wait a second, retry",
+             EVENTS_FILE, strerror(errno));
+        return text_result(out, 1);
+    }
+    if (fstat(fd, &st) == 0) sz = st.st_size;
+    if (sz == 0) {
+        close(fd);
+        return text_result("events.jsonl exists but is empty - jai-eventd is "
+                           "running but no kernel events have arrived yet. "
+                           "Fire one: echo hello > /dev/jai", 0);
+    }
+    if (sz > (off_t)EVENTS_TAIL)
+        lseek(fd, sz - (off_t)EVENTS_TAIL, SEEK_SET);
+    tail = malloc(EVENTS_TAIL + 1);
+    if (!tail) { close(fd); return text_result("out of memory", 1); }
+    r = read(fd, tail, EVENTS_TAIL);
+    close(fd);
+    if (r <= 0) {
+        free(tail);
+        return text_result("read on " EVENTS_FILE " failed", 1);
+    }
+    tail[r] = '\0';
+
+    /* split into lines; drop a partial first record when we seeked mid-file */
+    {
+        char *p = tail, *endp = tail + r;
+        if (sz > (off_t)EVENTS_TAIL) {
+            char *nl = memchr(p, '\n', (size_t)(endp - p));
+            if (!nl) {
+                free(tail);
+                return text_result("events tail holds one giant record", 1);
+            }
+            p = nl + 1;
+        }
+        lines = malloc((size_t)(endp - p + 1) * sizeof *lines);
+        if (!lines) { free(tail); return text_result("out of memory", 1); }
+        while (p < endp) {
+            char *nl = memchr(p, '\n', (size_t)(endp - p));
+            size_t len = nl ? (size_t)(nl - p) : (size_t)(endp - p);
+            if (len > 0) lines[nlines++] = p;
+            if (nl) { *nl = '\0'; p = nl + 1; } else break;
+        }
+        /* last line is NUL-terminated by tail[r] = '\0' above */
+    }
+
+    first = nlines - want;
+    if (first < 0) first = 0;
+    bfmt(out, &got, sizeof out,
+         "last %ld event record(s) from %s (oldest first):\n",
+         nlines - first, EVENTS_FILE);
+    for (i = first; i < nlines; i++) {
+        json_object *o = json_tokener_parse(lines[i]);
+        if (o && json_object_is_type(o, json_type_object)) {
+            json_object *f;
+            const char *tsv = NULL, *txv = NULL, *ntv = NULL;
+            long long sqv = -1, gpv = 0;
+
+            if (json_object_object_get_ex(o, "ts", &f) &&
+                json_object_is_type(f, json_type_string))
+                tsv = json_object_get_string(f);
+            if (json_object_object_get_ex(o, "seq", &f))
+                sqv = json_object_get_int64(f);
+            if (json_object_object_get_ex(o, "text", &f) &&
+                json_object_is_type(f, json_type_string))
+                txv = json_object_get_string(f);
+            if (json_object_object_get_ex(o, "gap", &f))
+                gpv = json_object_get_int64(f);
+            if (json_object_object_get_ex(o, "note", &f) &&
+                json_object_is_type(f, json_type_string))
+                ntv = json_object_get_string(f);
+
+            if (txv)
+                bfmt(out, &got, sizeof out, "#%lld [%s] %s\n",
+                     sqv, tsv ? tsv : "?", txv);
+            else if (gpv > 0)
+                bfmt(out, &got, sizeof out, "#%lld [%s] GAP: %s\n",
+                     sqv, tsv ? tsv : "?", ntv ? ntv : "events lost");
+            else
+                bfmt(out, &got, sizeof out, "#%lld [%s] %s\n",
+                     sqv, tsv ? tsv : "?", lines[i]);
+            json_object_put(o);
+        } else {
+            json_object_put(o);            /* NULL-safe: no-op when NULL */
+            bfmt(out, &got, sizeof out, "raw: %s\n", lines[i]);
+        }
+        if (got >= sizeof out - 512) {
+            bappend(out, &got, sizeof out, "...(output truncated)\n");
+            break;
+        }
+    }
+    free(lines);
+    free(tail);
+    return text_result(out, 0);
+}
+
 /* ------------------------------ tools/list ------------------------------ */
 
 static json_object *mk_tool(const char *name, const char *desc, json_object *schema)
@@ -670,7 +796,7 @@ static json_object *str_prop(const char *desc, int max_len)
 static json_object *handle_tools_list(void)
 {
     json_object *arr = json_object_new_array();
-    json_object *p_event, *p_dmesg, *p_mem, *p_memc, *p_du, *p_un;
+    json_object *p_event, *p_dmesg, *p_events, *p_mem, *p_memc, *p_du, *p_un;
     const char *req_text[]  = { "text" };
     const char *req_key[]   = { "key" };
     const char *req_keyc[]  = { "key", "content" };
@@ -687,6 +813,16 @@ static json_object *handle_tools_list(void)
         json_object_object_add(li, "type", json_object_new_string("integer"));
         json_object_object_add(li, "description", json_object_new_string("how many lines (1-100, default 20)"));
         json_object_object_add(p_dmesg, "lines", li);
+    }
+
+    /* jai_events: { count } */
+    p_events = json_object_new_object();
+    {
+        json_object *ci = json_object_new_object();
+        json_object_object_add(ci, "type", json_object_new_string("integer"));
+        json_object_object_add(ci, "description",
+            json_object_new_string("how many recent records (1-100, default 10)"));
+        json_object_object_add(p_events, "count", ci);
     }
 
     /* memory: { key } and { key, content } */
@@ -717,11 +853,18 @@ static json_object *handle_tools_list(void)
         "Write a short event (max 254 bytes) to /dev/jai. It enters the kernel event "
         "ring buffer AND the kernel log ('jai: event: <text>'). Returns the read-back as proof.",
         schema_obj(p_event, req_text, 1)));
+    json_object_array_add(arr, mk_tool("jai_events",
+        "Recent kernel events as captured by jai-eventd from /dev/jai (tail "
+        "of /var/lib/jai/events.jsonl, oldest first). GAP records mark events "
+        "lost to ring overflow. Use for 'what happened lately' - no shell "
+        "needed. Requires jai-eventd.service to be running.",
+        schema_obj(p_events, NULL, 0)));
     json_object_array_add(arr, mk_tool("jai_dmesg",
         "Tail of the kernel log (journalctl -k, dmesg fallback).",
         schema_obj(p_dmesg, NULL, 0)));
     json_object_array_add(arr, mk_tool("jai_services",
-        "Health of the JAI systemd units (jai-agent, jai-gateway, jai-link): active + enabled.",
+        "Health of the JAI systemd units (jai-agent, jai-eventd, jai-gateway, "
+        "jai-heartbeat, jai-link): active + enabled.",
         schema_obj(NULL, NULL, 0)));
     json_object_array_add(arr, mk_tool("jai_sysinfo",
         "Host summary: host, kernel, uptime, load, memory, root disk, UTC time.",
@@ -764,6 +907,7 @@ static json_object *handle_tools_call(json_object *params)
 
     if      (!strcmp(name, "jai_kernel_status")) return tool_kernel_status(args);
     else if (!strcmp(name, "jai_kernel_event"))  return tool_kernel_event(args);
+    else if (!strcmp(name, "jai_events"))        return tool_events(args);
     else if (!strcmp(name, "jai_dmesg"))         return tool_dmesg(args);
     else if (!strcmp(name, "jai_services"))      return tool_services(args);
     else if (!strcmp(name, "jai_sysinfo"))       return tool_sysinfo(args);
