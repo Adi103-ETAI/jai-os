@@ -1,0 +1,21 @@
+#!/bin/sh
+# jai-heartbeat-beat - the appliance pulse (Phase 3c).
+# One beat = one telemetry line: UTC timestamp + kernel-event delta since
+# the previous beat. Called by jai-heartbeat.service (timer fires it every
+# 5 minutes).
+#
+# WHY A SCRIPT AND NOT AN INLINE ExecStart: systemd parses % in ExecStart
+# as a unit specifier - `date "+%F %T"` in the old unit silently broke
+# (it needs %%). Plain shell files have no escaping games. See DECISIONS.md.
+set -eu
+D=/var/lib/jai
+mkdir -p "$D"
+
+c=$(wc -l < "$D/events.jsonl" 2>/dev/null || echo 0)
+m=$(cat "$D/.evt_mark" 2>/dev/null || echo 0)
+delta=$((c - m))
+# logrotate copytruncate reset the file under us: recount from zero
+[ "$delta" -lt 0 ] && delta=$c
+
+printf '%s events_delta=%s total=%s\n' "$(date '+%F %T jai-heartbeat')" "$delta" "$c" >> "$D/heartbeat.log"
+echo "$c" > "$D/.evt_mark"

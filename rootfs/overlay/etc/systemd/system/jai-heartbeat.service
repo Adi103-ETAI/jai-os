@@ -1,8 +1,14 @@
-# jai-heartbeat.service - practice-dummy unit for the agent's
-# service_status / service_restart MCP tools (Phase 3b).
-# Deliberately harmless: appends a timestamp line, nothing else.
+# jai-heartbeat.service - the appliance pulse (Phase 3c).
+# Appends one telemetry line per beat: UTC timestamp + kernel-event delta
+# since the previous beat (see usr/local/bin/jai-heartbeat-beat). Also the
+# safe practice target for the agent's service_status / service_restart
+# MCP tools (Phase 3b) - deliberately harmless.
+#
+# HISTORY: the old inline `date "+%F %T"` here never worked right - systemd
+# parses % in ExecStart as a unit specifier (must be %%). Logic now lives
+# in the beat script where no escaping games exist. See DECISIONS.md.
 [Unit]
-Description=JAI heartbeat - timestamped event for jai-mcp to observe
+Description=JAI heartbeat - telemetry pulse + kernel event delta
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'mkdir -p /var/lib/jai && date "+%F %T jai-heartbeat" >> /var/lib/jai/heartbeat.log'
+ExecStart=/usr/local/bin/jai-heartbeat-beat
