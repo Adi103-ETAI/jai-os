@@ -17,3 +17,6 @@ image/jarvisos*.zst
 # python artifacts
 __pycache__/
 *.pyc
+
+# kernel build bookkeeping (gcc -MMD leaves .cmd files)
+*.cmd
