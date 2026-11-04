@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-11-04 (Tier-1 LIVE on Vega iGPU via Ollama+Vulkan; llama.cpp retired; KVM verified in QEMU cmdline)
+Last updated: 2026-11-04 (Tier-1 LIVE on Vega iGPU via Ollama+Vulkan; llama.cpp retired; KVM verified; product defined: hardware-boundless DESKTOP OS — VISION.md)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -157,9 +157,11 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   tier-1 926 MB GPU-resident; host 87.5% idle with VM up (load 0.63); QEMU runs
   `-accel kvm -cpu host` (confirmed); VM RAM 961 MB (needs 2G).
 - DECIDED: warm brain (6a), gate (6b), tier-1 = Ollama + Vulkan iGPU (D12/D13),
-  lessons loop, product pivot.
+  lessons loop, product pivot, product definition = hardware-boundless
+  desktop OS (D14/D15, VISION.md).
 - BLOCKED: 4b decoder (needs event struct + jai-mcp.c tail + phase2.sh from owner).
 - IN FLIGHT: 6a build block sent.
 - OPEN: token revoke (STILL pending, 2026-11-04); VM 2G bump; OLLAMA_HOST=0.0.0.0
   so the VM can reach tier-1 at 10.0.2.2:11434.
-Details: ARCHITECTURE-V2.md, ROADMAP-V2.md, TIER1-MODEL.md, GPU-ACCEL.md.
+Details: VISION.md (north star), CODE-MAP.md (what code exists),
+ARCHITECTURE-V2.md, ROADMAP-V2.md, TIER1-MODEL.md, GPU-ACCEL.md.

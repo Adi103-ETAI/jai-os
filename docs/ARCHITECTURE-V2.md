@@ -5,6 +5,10 @@
 > All numbers are measured (JAI VM + Kali host).
 > 2026-11-04: LAYER 1 is LIVE — qwen3:0.6b serves 100% on the host's Vega
 > iGPU (Ollama + Vulkan). See GPU-ACCEL.md.
+> 2026-11-04 (later): docs/VISION.md now defines the product — a
+> hardware-boundless DESKTOP OS. This doc describes the active-system
+> engine; it must work on ANY hardware (adapt + degrade, never require).
+> The dev VM is the bench, not the boundary.
 
 ## 0. Why v2 exists — measured evidence
 
@@ -150,7 +154,7 @@ exists on the host, so the VM never hosts tier-1).
 | Database for events     | queries grep/jq cannot answer                        |
 | Auto-update brain       | staged channel + test VM + rollback proven           |
 | Own agent loop          | opencode blocks a capability (extend via MCP first)  |
-| Web UI inside the VM    | never — UI lives off-box, talks to M3 API            |
+| Web UI inside the VM    | still never in the VM — the bench stays minimal; on real metal the desktop profile ships the assistant UI on-box (VISION.md, M4) |
 
 ## 11. Agent pluggability
 

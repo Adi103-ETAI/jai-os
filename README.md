@@ -1,24 +1,21 @@
 # JAI
 
-**JAI** ("Jay") is a persistent, headless OS-level assistant built **on top of**
-Ubuntu — not a kernel fork. Borrow the base, own the layers above.
+**JAI OS is an AI-assisted desktop operating system** built on top of Ubuntu —
+like Windows, Ubuntu or macOS, but with an AI woven into the OS itself: it
+watches the machine, explains things in plain words, fixes what is safe to
+fix, and helps control the system — while the user can always just type,
+click, and use the computer normally.
 
-```
-┌───────────────────────────────────────────────┐
-│ JAI LAYER (ours — all custom code)            │
-│  jai-gateway   : voice/IO front-end (Phase 4) │
-│  jai-agent     : opencode serve, the brain    │
-│  jai-mcp       : custom MCP tool servers      │
-│  kernel/jai_dev: /dev/jai kernel interface    │
-├───────────────────────────────────────────────┤
-│ BASE (borrowed)                               │
-│  Ubuntu 24.04 minimal userland (debootstrap)  │
-├───────────────────────────────────────────────┤
-│ KERNEL (borrowed)                             │
-│  Stock Ubuntu linux-image-generic             │
-│  + our out-of-tree modules only               │
-└───────────────────────────────────────────────┘
-```
+Two laws (full text: [docs/VISION.md](docs/VISION.md)):
+1. **Boundless to hardware** — runs on anything from a 2 GB headless box to
+   a gaming rig: it MEASURES the machine and adapts, degrades gracefully,
+   never REQUIRES power. Our workshop laptop is the test bench, not the ceiling.
+2. **The user is the boss** — the AI assists and proposes; it never takes the
+   keyboard away; every dangerous action passes a permission gate.
+
+This repo holds the build system, the JAI layer (kernel module, reflex
+arc, MCP hands, brain config), and the QEMU bench that proves everything
+before it touches real metal.
 
 ## Runtime flow
 
@@ -50,7 +47,10 @@ debootstrap minimal rootfs
 
 | Document | Contents |
 |---|---|
+| [docs/VISION.md](docs/VISION.md) | **the north star: what we are building and the two laws** |
+| [docs/CODE-MAP.md](docs/CODE-MAP.md) | what code is written, what each piece does, how it builds |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | layer map, runtime + build flows, phase table |
+| [docs/ARCHITECTURE-V2.md](docs/ARCHITECTURE-V2.md) | the active-system design (warm brain, gate, tiers) |
 | [docs/STATUS.md](docs/STATUS.md) | exactly what's done / partial / not started |
 | [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **what to do next — exact commands, in order** |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | every design decision + why |
@@ -58,11 +58,12 @@ debootstrap minimal rootfs
 
 ## Hardware context
 
-Build host: AMD Athlon Silver 3050U (2 cores, 3.2 GHz), 9.7 GB RAM, headless.
+Workshop rig (our dev/test machine, NOT a product requirement): AMD Athlon
+Silver 3050U (2 cores, 3.2 GHz), 9.7 GB RAM, no dedicated GPU, headless.
 Everything here is integration work — no kernel compiles — so this modest
-box is sufficient. Test VMs are capped at 1 GB RAM / 1 vCPU by design.
-The chip's Vega iGPU now serves tier-1 at 100% GPU via Vulkan
-(docs/GPU-ACCEL.md) — headless turns out to be ideal for that.
+box is sufficient for building and testing. The Vega iGPU serves tier-1 at
+100% GPU via Vulkan (docs/GPU-ACCEL.md). The PRODUCT is hardware-boundless
+(docs/VISION.md): it measures whatever machine it lands on and adapts.
 
 ## Repo layout
 

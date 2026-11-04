@@ -317,3 +317,32 @@ impact: measured host 87.5% idle with VM up; drop-in survives reboots;
 rollback = delete the file. vulkaninfo llvmpipe over SSH documented as
 a red herring. VM-side access still TODO (OLLAMA_HOST=0.0.0.0).
 Refs: GPU-ACCEL.md; ARCHITECTURE-V2.md §5
+
+## D14 — Hardware-boundless: adapt + degrade, never require
+what: JAI OS must run on ANY hardware. A boot-time capability probe
+(jai-capabilities, roadmap 2b) measures cores/RAM/GPU/disk/network ->
+/etc/jai/capabilities.json -> the profile picks itself (minimal /
+balanced / full). Every feature must scale down and fall back; nothing
+may REQUIRE a powerful machine. Reference pattern (already proven with
+tier-1): GPU if present -> CPU if not -> static rules if unreachable.
+why: the workshop laptop (2 cores, no dedicated GPU) must never become
+the product's ceiling. Earlier docs read as if weak hardware were a
+design constraint — it is only a testing constraint. Owner's direction:
+"JAI OS should run on any hardware, boundless to hardware."
+impact: VISION.md is the north star (Law 1); roadmap gains 2b; all
+future components must state their fallback chain.
+Refs: VISION.md; GPU-ACCEL.md; ROADMAP-V2.md step 2b
+
+## D15 — JAI OS is a desktop OS (product definition)
+what: the product is a real desktop operating system (Ubuntu base +
+desktop environment) with the AI woven into the OS: an assistant that
+watches, explains in plain words, fixes what is safe, and helps control
+the machine — through permission gates. The user can always type, click,
+and use the computer normally.
+why: owner's product definition: "JAI OS should be an actual desktop OS
+like Windows, Ubuntu or macOS; AI should control or help the OS, that
+doesn't mean the user can't type; make things simpler for the user."
+impact: docs reframed — README leads with the product; VISION.md +
+CODE-MAP.md added (what/how/what-code/architecture); M4 rewritten as
+on-box desktop integration; the headless VM remains the DEV BENCH only.
+Refs: VISION.md; CODE-MAP.md; ROADMAP-V2.md M4
