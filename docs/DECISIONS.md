@@ -263,3 +263,32 @@ formatting, it wants to be a script.
   stay out of images by design (in-VM device-flow login re-run).
 - Kernel build artifacts untracked (.gitignore existed; the .ko/.o/.cmd
   files were committed before it and kept shipping noise).
+
+## D8 — Warm brain (Phase 6a)
+what: jai-brain.service (systemd, User=jai) keeps opencode serve warm on
+127.0.0.1:4096; wrapper v2 connects to it, falls back to --standalone cold.
+why: 45.6 s cold thoughts kill interactivity; host evidence shows resident
+service = 434 MB, ~0.4% CPU. Golden rule: warm != stateful (kill-safe).
+impact: unit + wrapper v2 in rootfs/overlay; doctor gains brain checks.
+Refs: Phase 6a; ARCHITECTURE-V2.md §3
+
+## D9 — Gate before brain (Phase 6b)
+what: jai-gate (C) enforces wake policy: Class 0 ignore / 1 note / 2 wake,
+with budget file, dedup, serialization.
+why: quota death observed live; brain must never be woken by accident.
+impact: 4b decoder becomes prerequisite; 4c wake becomes safe by design.
+Refs: Phase 6b; ARCHITECTURE-V2.md §4
+
+## D10 — Tier-1 quick judge (small local model)
+what: Qwen3-0.6B GGUF via llama.cpp on Kali host classifies/summarizes for
+free (~1 s); cloud brain only for real judgment.
+why: triage must not burn quota; system must degrade gracefully if quota dies.
+impact: new optional dependency over socket; static severity table as fallback.
+Refs: TIER1-MODEL.md
+
+## D11 — Product pivot
+what: JAI OS grows toward shippable product: .deb packages (M1), installer
+(M2), config TUI+API (M3), web/desktop UI off-box (M4), signed repo (M5).
+why: owner wants an installable OS + app, not a personal VM setup.
+impact: packaging/ layout, dkms module, VM stays light; UI never runs in VM.
+Refs: ROADMAP-V2.md milestones

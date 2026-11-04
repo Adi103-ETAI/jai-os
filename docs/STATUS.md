@@ -148,3 +148,14 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
 ## Phase 5 — First real-hardware boot ⬜
 - ⬜ Boot JAI OS image on actual hardware
+
+## v2.5 status snapshot (active-system redesign)
+
+- WORKING: kernel reflexes, eventd JSONL, MCP tools, wrapper v1, provision scripts.
+- MEASURED: cold thought 45.6 s; error path 10.87 s; warm service 434 MB / 0.4% CPU;
+  VM RAM 961 MB (needs 2G); free quota exhausts -> gate is mandatory, not optional.
+- DECIDED: warm brain (6a), gate (6b), tier-1 Qwen3-0.6B, lessons loop, product pivot.
+- BLOCKED: 4b decoder (needs event struct + jai-mcp.c tail + phase2.sh from owner).
+- IN FLIGHT: 6a build block sent; tier-1 pilot building on Kali host.
+- NEXT UNBLOCKED: token revoke + 2G bump; run 6a; finish llama-server test.
+Details: ARCHITECTURE-V2.md, ROADMAP-V2.md, TIER1-MODEL.md.
