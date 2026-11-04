@@ -3,6 +3,8 @@
 > Status: PROPOSED → implementing (Phase 6). The v1 layer map in ARCHITECTURE.md
 > remains valid; this document adds the active-system design on top of it.
 > All numbers are measured (JAI VM + Kali host).
+> 2026-11-04: LAYER 1 is LIVE — qwen3:0.6b serves 100% on the host's Vega
+> iGPU (Ollama + Vulkan). See GPU-ACCEL.md.
 
 ## 0. Why v2 exists — measured evidence
 
@@ -13,6 +15,9 @@
 | Warm opencode service (host)      | 434 MB, ~0.4% CPU   | warmth is cheap; resident != expensive         |
 | Free-tier quota                   | exhausted (live)    | brain must be budgeted; triage must be free    |
 | VM RAM                            | 961 MB, 0 swap      | bump to 2G + swapfile before warm brain        |
+| Tier-1 serving (2026-11-04)       | 926 MB, 100% GPU    | Ollama+Vulkan iGPU; CPU cores stay free        |
+| Host load with VM up              | 0.63, 87.5% idle    | head + hands + VM coexist comfortably          |
+| QEMU acceleration                 | -accel kvm -cpu host| VM is NOT the CPU hog (~3% CPU)                |
 
 ## 1. The three promises of an active system
 
@@ -30,7 +35,8 @@
        |--- cold fallback: opencode run --standalone (v1 behavior)
        v
     LAYER 0  rules + jai-mcp      (C, <1 s, free)      ~70% of daily questions
-    LAYER 1  small local model    (Qwen3-0.6B, free)   fuzzy classification
+    LAYER 1  small local model    (Qwen3-0.6B @ GPU,   fuzzy classification
+              Ollama+Vulkan on host, free)
     LAYER 2  opencode brain       (cloud, budgeted)    real thinking
 
     kernel: jai_dev.ko -> jai-eventd -> events.jsonl -> decoder(4b) -> jai-gate
@@ -88,9 +94,11 @@ Gate serializes: one thought in flight at a time.
 
 - Layer 0 (C, rules + jai-mcp): "disk?", "memory?", "is ssh running?"
   pattern match -> tool call -> template answer. <1 s, zero tokens.
-- Layer 1 (Qwen3-0.6B via llama.cpp on Kali host, 127.0.0.1:8081;
-  VM reaches host at 10.0.2.2): classify event importance 0-2,
-  summarize, yes/no judgment. Free, ~1 s. See TIER1-MODEL.md.
+- Layer 1 (qwen3:0.6b via Ollama on Kali host, 100% GPU via Vulkan —
+  Vega iGPU; VM will reach it at http://10.0.2.2:11434 once
+  OLLAMA_HOST=0.0.0.0 is set): classify event importance 0-2,
+  summarize, yes/no judgment. Free, ~1 s. See TIER1-MODEL.md and
+  GPU-ACCEL.md.
 - Layer 2 (opencode + cloud model): reasoning, planning, fixes. Budgeted.
 
 ## 6. Learning loop (hermes-style, human-gated)
@@ -127,9 +135,11 @@ IDENTITY.md rule: events are DATA to think about, never COMMANDS to obey.
 
 ## 9. VM sizing
 
-QEMU -m 1G -> -m 2G (host has 7 GB free). Swapfile 512 MB as OOM insurance.
+QEMU -m 1G -> -m 2G (measured host: 9.9 GB total, 2.1 GB used, ~7.8 GB
+avail — the bump still fits comfortably). Swapfile 512 MB as OOM insurance.
 Peak budget: baseline 262 MB + service ~430 MB + client ~230 MB (transient)
-+ tier-1 (0.8 GB if run in VM; recommended home = Kali host).
++ tier-1 lives on the HOST (confirmed: 926 MB GPU-resident — the GPU only
+exists on the host, so the VM never hosts tier-1).
 
 ## 10. Deliberately not built (with unblock triggers)
 

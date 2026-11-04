@@ -4,9 +4,10 @@ Rule: system first, product second; every step has acceptance criteria.
 
 | #  | Step                                   | Track   | Status | Done when |
 |----|----------------------------------------|---------|--------|-----------|
-| 0  | Revoke leaked token; VM 2G + 512M swap | base    | OPEN   | free -m shows 2G+swap; token dead |
+| 0  | Revoke leaked token; VM 2G + 512M swap | base    | OPEN ⚠ token still alive (2026-11-04) | free -m shows 2G+swap; token dead |
 | 1  | 6a warm brain (unit + wrapper v2)      | system  | BUILD BLOCK SENT | BRAIN-UP on boot; kill -9 -> 3s recovery; cold fallback proven |
-| 2  | Tier-1 pilot (Qwen3-0.6B, llama.cpp)   | system  | IN PROGRESS (host) | {"i":N} JSON in ~1 s from llama-server |
+| 2  | Tier-1 serving (Qwen3-0.6B, Ollama)    | system  | LIVE ON GPU ✅ (2026-11-04) | gate JSON round-trip via 10.0.2.2:11434 |
+| 2a | Tier-1 GPU offload (Vulkan iGPU unlock)| system  | DONE 2026-11-04 ✅ | ollama ps = 100% GPU; survives reboot ✅ |
 | 3  | 4b decoder + jai_events tool           | system  | BLOCKED (needs: 254B struct, jai-mcp.c tail, phase2.sh) | decoded.jsonl populated; brain can read events |
 | 4  | 2b lessons (jai_lesson_write, cap 50)  | learning| after 3 | lessons.md grows; read-first verified |
 | 5  | 6b jai-gate (classes+budget)           | system  | after 3+4 | Class 2 wakes budgeted; 0/1 free |
@@ -20,10 +21,12 @@ Rule: system first, product second; every step has acceptance criteria.
 | 13 | Pulse metrics everywhere               | system  | cheap  | pulse.jsonl counts thoughts/quota/latency |
 
 Dependency chain: 0 -> 1 -> (3 -> 4 -> 5 -> 6) -> 7 -> 8 -> 9 -> 10 -> 11.
-Tier-1 pilot (2) is independent and unblocked NOW.
+Tier-1 serving (2) is LIVE on GPU; only the gate round-trip (2's done-when)
+remains, behind OLLAMA_HOST=0.0.0.0.
 
 Next unblocked actions (owner, on Kali):
-1. Step 0 (token revoke + 2G bump)
-2. Step 1 (run 6a block inside VM, paste outputs)
-3. Step 2 (finish llama-server build + test, paste timing)
+1. Step 0 — revoke the token (STILL pending) + VM 2G/swap bump
+2. Expose Ollama to the VM: OLLAMA_HOST=0.0.0.0:11434 drop-in; test
+   10.0.2.2:11434 from inside the VM
+3. Step 1 (run 6a block inside VM, paste outputs)
 4. Paste the three 4b inputs (event struct, jai-mcp.c tail, phase2.sh)

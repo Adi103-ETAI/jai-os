@@ -54,12 +54,15 @@ debootstrap minimal rootfs
 | [docs/STATUS.md](docs/STATUS.md) | exactly what's done / partial / not started |
 | [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **what to do next — exact commands, in order** |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | every design decision + why |
+| [docs/GPU-ACCEL.md](docs/GPU-ACCEL.md) | how tier-1 runs 100% on the Vega iGPU (Ollama + Vulkan) |
 
 ## Hardware context
 
 Build host: AMD Athlon Silver 3050U (2 cores, 3.2 GHz), 9.7 GB RAM, headless.
 Everything here is integration work — no kernel compiles — so this modest
 box is sufficient. Test VMs are capped at 1 GB RAM / 1 vCPU by design.
+The chip's Vega iGPU now serves tier-1 at 100% GPU via Vulkan
+(docs/GPU-ACCEL.md) — headless turns out to be ideal for that.
 
 ## Repo layout
 

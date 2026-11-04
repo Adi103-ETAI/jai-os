@@ -292,3 +292,28 @@ what: JAI OS grows toward shippable product: .deb packages (M1), installer
 why: owner wants an installable OS + app, not a personal VM setup.
 impact: packaging/ layout, dkms module, VM stays light; UI never runs in VM.
 Refs: ROADMAP-V2.md milestones
+
+## D12 — Ollama replaces llama.cpp for tier-1 serving
+what: tier-1 model served by Ollama (systemd service, qwen3:0.6b,
+keep_alive 24h) instead of a hand-built llama-server.
+why: llama.cpp build broke and its CPU appetite dented SSH; Ollama gives
+a managed service, one-command model install, and automatic GPU backend
+discovery — with an OpenAI-compatible endpoint, so the gate's JSON
+contract is unchanged (only URL/port move, 8081 -> 11434).
+impact: TIER1-MODEL.md rewritten; gate code unchanged except URL/port.
+Refs: TIER1-MODEL.md; GPU-ACCEL.md
+
+## D13 — Tier-1 GPU offload via Vulkan iGPU (not ROCm)
+what: /etc/systemd/system/ollama.service.d/igpu.conf sets
+OLLAMA_IGPU_ENABLE=1; ollama service user in render+video groups;
+verified `ollama ps` PROCESSOR = 100% GPU (RADV RAVEN2), 926 MB resident.
+why: host has no NVIDIA (no CUDA) and ROCm does not support Picasso/
+Raven2 (gfx90c) — Ollama's Vulkan backend + Mesa RADV support every GCN
+chip. Ollama parks iGPUs by default; the journal line "dropping
+integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" was the golden
+clue. Purpose: move model math off the CPU cores so SSH, eventd, and
+QEMU stay snappy (headless bare-metal APU, 2 cores only).
+impact: measured host 87.5% idle with VM up; drop-in survives reboots;
+rollback = delete the file. vulkaninfo llvmpipe over SSH documented as
+a red herring. VM-side access still TODO (OLLAMA_HOST=0.0.0.0).
+Refs: GPU-ACCEL.md; ARCHITECTURE-V2.md §5

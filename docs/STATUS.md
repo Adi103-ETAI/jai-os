@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-11-02 (Phase 3c reflex arc + Phase 3d ops tooling shipped; brain pinned to Zen free model)
+Last updated: 2026-11-04 (Tier-1 LIVE on Vega iGPU via Ollama+Vulkan; llama.cpp retired; KVM verified in QEMU cmdline)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -151,11 +151,15 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
 ## v2.5 status snapshot (active-system redesign)
 
-- WORKING: kernel reflexes, eventd JSONL, MCP tools, wrapper v1, provision scripts.
+- WORKING: kernel reflexes, eventd JSONL, MCP tools, wrapper v1, provision scripts,
+  tier-1 serving (Ollama on host, 100% GPU via Vulkan iGPU).
 - MEASURED: cold thought 45.6 s; error path 10.87 s; warm service 434 MB / 0.4% CPU;
-  VM RAM 961 MB (needs 2G); free quota exhausts -> gate is mandatory, not optional.
-- DECIDED: warm brain (6a), gate (6b), tier-1 Qwen3-0.6B, lessons loop, product pivot.
+  tier-1 926 MB GPU-resident; host 87.5% idle with VM up (load 0.63); QEMU runs
+  `-accel kvm -cpu host` (confirmed); VM RAM 961 MB (needs 2G).
+- DECIDED: warm brain (6a), gate (6b), tier-1 = Ollama + Vulkan iGPU (D12/D13),
+  lessons loop, product pivot.
 - BLOCKED: 4b decoder (needs event struct + jai-mcp.c tail + phase2.sh from owner).
-- IN FLIGHT: 6a build block sent; tier-1 pilot building on Kali host.
-- NEXT UNBLOCKED: token revoke + 2G bump; run 6a; finish llama-server test.
-Details: ARCHITECTURE-V2.md, ROADMAP-V2.md, TIER1-MODEL.md.
+- IN FLIGHT: 6a build block sent.
+- OPEN: token revoke (STILL pending, 2026-11-04); VM 2G bump; OLLAMA_HOST=0.0.0.0
+  so the VM can reach tier-1 at 10.0.2.2:11434.
+Details: ARCHITECTURE-V2.md, ROADMAP-V2.md, TIER1-MODEL.md, GPU-ACCEL.md.
