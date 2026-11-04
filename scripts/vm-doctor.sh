@@ -89,6 +89,36 @@ fi
   && ok "last beat: $(tail -1 /var/lib/jai/heartbeat.log)" \
   || warn "no heartbeat.log yet"
 
+echo "--- capabilities probe (roadmap 2b: the eyes)"
+if [ -x /usr/local/bin/jai-capabilities ]; then
+  ok "jai-capabilities binary present"
+else
+  bad "jai-capabilities missing - install: vm-capabilities.sh"
+fi
+# one validation pass: parse + schema + enum checks + accel/gpu consistency
+CAPSUM="$(python3 - <<'PYCAP' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open("/etc/jai/capabilities.json"))
+    assert d.get("schema") == 1, "schema must be 1"
+    prof, accel = d.get("profile"), d.get("accel")
+    assert prof in ("minimal", "balanced", "full"), "bad profile %r" % prof
+    assert accel in ("cuda", "rocm", "vulkan", "cpu"), "bad accel %r" % accel
+    g = d.get("gpu", {})
+    if accel != "cpu" and not g.get("present"):
+        print("BAD|accel=%s but gpu.present=false" % accel); sys.exit(0)
+    gpu = "%s(%s)" % (g.get("vendor"), g.get("kind")) if g.get("present") else "none"
+    print("OK|profile=%s accel=%s gpu=%s" % (prof, accel, gpu))
+except Exception as e:
+    print("BAD|%s" % e)
+PYCAP
+)"
+case "$CAPSUM" in
+  "OK|"*) ok "capabilities.json valid: ${CAPSUM#OK|}" ;;
+  "BAD|"*) bad "capabilities.json invalid: ${CAPSUM#BAD|}" ;;
+  *) bad "capabilities.json missing/unreadable - fix: sudo jai-capabilities --write" ;;
+esac
+
 echo "--- brain (opencode)"
 OC="$(command -v opencode || true)"
 if [ -n "$OC" ]; then

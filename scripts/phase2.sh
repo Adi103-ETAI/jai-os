@@ -304,6 +304,35 @@ chown -R 1000:1000 "$R/var/lib/jai"
 chroot "$R" systemctl enable jai-eventd.service 2>/dev/null \
   || warn "could not enable jai-eventd.service in the rootfs"
 
+# ------------------------- 5o: jai-capabilities (the eyes, roadmap 2b) -----
+# Measures the machine at every boot and writes /etc/jai/capabilities.json
+# - the ONE truth file other layers read instead of guessing (profile:
+#   minimal/balanced/full + accel: cuda>rocm>vulkan>cpu). Same chroot
+#   lesson as 5m/5n: build against the rootfs glibc, pin the runtime lib,
+#   purge -dev after. Spec: docs/CAPABILITIES-SPEC.md.
+msg "5o. building jai-capabilities (hardware probe) inside chroot"
+chroot "$R" env DEBIAN_FRONTEND=noninteractive bash -c '
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends libjson-c-dev
+'
+cp "$JAI_ROOT/agent/capabilities/jai-capabilities.c" "$R/root/jai-capabilities.c"
+chroot "$R" bash -c 'gcc -O2 -Wall -Wextra -o /root/jai-capabilities /root/jai-capabilities.c -ljson-c'
+[ -x "$R/root/jai-capabilities" ] || die "jai-capabilities build failed inside chroot"
+chroot "$R" strip /root/jai-capabilities
+install -m 0755 "$R/root/jai-capabilities" "$R/usr/local/bin/jai-capabilities"
+rm -f "$R/root/jai-capabilities" "$R/root/jai-capabilities.c"
+msg "    /usr/local/bin/jai-capabilities installed ($(chroot "$R" /usr/local/bin/jai-capabilities --profile))"
+
+chroot "$R" env DEBIAN_FRONTEND=noninteractive bash -c '
+  apt-get purge -y -qq libjson-c-dev >/dev/null 2>&1 || true
+  apt-get install -y -qq --no-install-recommends libjson-c5 >/dev/null
+'
+
+install -m 0644 "$JAI_ROOT/rootfs/overlay/etc/systemd/system/jai-capabilities.service" \
+  "$R/etc/systemd/system/jai-capabilities.service"
+chroot "$R" systemctl enable jai-capabilities.service 2>/dev/null \
+  || warn "could not enable jai-capabilities.service in the rootfs"
+
 # --------------------------------------------------------- service check ---
 # Enable explicitly — the overlay copy alone does not enable units, and a
 # rootfs built before jai-link.service existed will not have it enabled.

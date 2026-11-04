@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-11-04 (Tier-1 LIVE on Vega iGPU via Ollama+Vulkan; llama.cpp retired; KVM verified; product defined: hardware-boundless DESKTOP OS — VISION.md)
+Last updated: 2026-11-04 (roadmap 2b jai-capabilities CODE LANDED: probe + unit + installer + doctor check; spec-first contract in CAPABILITIES-SPEC.md; VM build+boot-test pending)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -141,6 +141,27 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   `autoupdate: false` — upgrades only via vm-upgrade-brain.sh.
   `jai` wrapper now ships via overlay (JAI_MODEL per-call override).
 
+## Roadmap 2b — jai-capabilities (the eyes) 🟡 CODE LANDED (2026-11-04)
+- ✅ **Spec first** (`docs/CAPABILITIES-SPEC.md`): probe table, JSON schema v1,
+  ladder thresholds, accel chain, service design, acceptance criteria
+- ✅ **The probe** (`agent/capabilities/jai-capabilities.c` + Makefile): C99 +
+  json-c only; measures cores/RAM/GPU(vendor, model, VRAM, driver)/disk/net
+  (1 s cap)/display/virt; profile picks itself from RAM+cores (15360/7600
+  thresholds, 1900 floor), accel = cuda > rocm > vulkan > cpu; llvmpipe/
+  lavapipe rejected by construction (vendor's own ICD required); fork+execvp
+  (never popen), atomic 0644 write, idempotent output
+- ✅ **Boot wiring** (`jai-capabilities.service`): oneshot, Before
+  multi-user + jai-eventd, hardened (ProtectSystem=strict,
+  ReadWritePaths=/etc/jai); `phase2.sh` step **5o** builds it in-chroot +
+  enables it; `scripts/vm-capabilities.sh` live-installs on the running VM
+- ✅ **Doctor check**: vm-doctor.sh validates schema/profile/accel enums +
+  accel↔gpu consistency
+- ✅ **Sandbox acceptance (partial)**: zero-warning build; valid JSON; GPU-less
+  box → accel=cpu, no crash (criterion 5); idempotent (timestamp-only diff);
+  CLI --profile/--write/--help; virt detected via plain systemd-detect-virt
+- ⬜ **VM acceptance**: run `vm-capabilities.sh` in the VM → criteria 1-4, 6
+  (workshop bare metal → balanced/vulkan when run on the rig itself)
+
 ## Phase 4 — Voice + remote access ⬜
 - ⬜ jai-gateway: openWakeWord + whisper.cpp (STT) + Piper (TTS), event-driven
 - ⬜ opencode HTTP API integration
@@ -152,16 +173,19 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 ## v2.5 status snapshot (active-system redesign)
 
 - WORKING: kernel reflexes, eventd JSONL, MCP tools, wrapper v1, provision scripts,
-  tier-1 serving (Ollama on host, 100% GPU via Vulkan iGPU).
+  tier-1 serving (Ollama on host, 100% GPU via Vulkan iGPU), capabilities probe
+  (code landed, VM test pending).
 - MEASURED: cold thought 45.6 s; error path 10.87 s; warm service 434 MB / 0.4% CPU;
   tier-1 926 MB GPU-resident; host 87.5% idle with VM up (load 0.63); QEMU runs
   `-accel kvm -cpu host` (confirmed); VM RAM 961 MB (needs 2G).
 - DECIDED: warm brain (6a), gate (6b), tier-1 = Ollama + Vulkan iGPU (D12/D13),
   lessons loop, product pivot, product definition = hardware-boundless
-  desktop OS (D14/D15, VISION.md).
+  desktop OS (D14/D15, VISION.md), capabilities spec-first + two independent
+  axes + llvmpipe rejected by construction (D16, CAPABILITIES-SPEC.md).
 - BLOCKED: 4b decoder (needs event struct + jai-mcp.c tail + phase2.sh from owner).
-- IN FLIGHT: 6a build block sent.
+- IN FLIGHT: 6a build block sent; 2b VM build+boot-test (vm-capabilities.sh).
 - OPEN: token revoke (STILL pending, 2026-11-04); VM 2G bump; OLLAMA_HOST=0.0.0.0
   so the VM can reach tier-1 at 10.0.2.2:11434.
 Details: VISION.md (north star), CODE-MAP.md (what code exists),
-ARCHITECTURE-V2.md, ROADMAP-V2.md, TIER1-MODEL.md, GPU-ACCEL.md.
+CAPABILITIES-SPEC.md (the eyes' contract), ARCHITECTURE-V2.md, ROADMAP-V2.md,
+TIER1-MODEL.md, GPU-ACCEL.md.

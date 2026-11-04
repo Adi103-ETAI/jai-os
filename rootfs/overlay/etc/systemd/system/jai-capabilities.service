@@ -1,0 +1,27 @@
+# jai-capabilities.service - roadmap 2b: measure the machine at every boot
+# and write /etc/jai/capabilities.json - the ONE truth file other layers
+# read instead of guessing. Spec: docs/CAPABILITIES-SPEC.md.
+# Law 1 (VISION.md): measure, adapt, degrade gracefully, never require.
+#
+# - oneshot, < 1 s, read-only probing; every probe has source-or-default
+# - runs EVERY boot (cheap); a stale file is simply overwritten
+# - profile changes require reboot (documented v1 limit)
+# - runs BEFORE jai-eventd so later JAI units could consume the file
+[Unit]
+Description=JAI capabilities probe - measure machine, write capabilities.json
+Documentation=file:///etc/jai/capabilities.json
+After=local-fs.target
+Before=multi-user.target jai-eventd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/jai-capabilities --write
+RemainAfterExit=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/jai
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

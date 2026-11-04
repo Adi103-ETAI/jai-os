@@ -346,3 +346,31 @@ impact: docs reframed — README leads with the product; VISION.md +
 CODE-MAP.md added (what/how/what-code/architecture); M4 rewritten as
 on-box desktop integration; the headless VM remains the DEV BENCH only.
 Refs: VISION.md; CODE-MAP.md; ROADMAP-V2.md M4
+
+## D16 — jai-capabilities: spec-first contract, two independent axes, llvmpipe rejected by construction
+what: roadmap 2b ships as spec (CAPABILITIES-SPEC.md) BEFORE code; the
+probe (agent/capabilities/jai-capabilities.c, C99+json-c) measures
+cores/RAM/GPU/disk/net/display/virt at boot into
+/etc/jai/capabilities.json; profile = f(RAM, cores) ONLY (full >=15360MB
+and >=4 cores; balanced >=7600MB and >=2 cores; else minimal; <1900MB =
+below_floor rules-only); accel = cuda > rocm > vulkan > cpu, a SEPARATE
+axis that never influences the profile; oneshot unit runs every boot,
+Before jai-eventd; deploys via phase2 5o (chroot) or vm-capabilities.sh
+(live VM).
+why: Law 1 says measure-adapt-degrade-never-require, and VISION's ladder
+names minimal/balanced/full — but a 16GB headless server is FULL-compute
+with NO GPU, so hardware capacity and compute location must be measured
+independently or the OS will misfit real machines. Spec-first so the
+JSON contract gets reviewed once and the C becomes mechanical (same
+pattern as the GPU day: write the doc, then obey it). llvmpipe (the
+vulkaninfo red herring of 2026-11-04) can never fool the OS because
+accel=vulkan REQUIRES the vendor's own ICD file — lavapipe/lvp_icd are
+never accepted. Vulkan detection checks the vendor ICD + libvulkan.so.1
+via dlopen, not a render test: the real proof stays tier-1's fallback
+chain (GPU -> CPU -> rules).
+impact: every AI layer can now consume one truth file instead of
+guessing (gate budget, model size, phase2 bake choices, doctor report,
+M4 DE picker). v1 limits documented in the spec: boot-time only, profile
+switch = reboot, gpu.kind is a coarse vram>=4096MB heuristic.
+Refs: CAPABILITIES-SPEC.md; VISION.md (Law 1, the ladder);
+GPU-ACCEL.md (the llvmpipe lesson); ROADMAP-V2.md row 2b

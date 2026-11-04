@@ -11,6 +11,7 @@
 |-------------|-------------------------------|----------|--------------|--------|
 | The reflex  | `kernel/jai_dev/jai_dev.c`    | C (kernel module — the ONLY kernel code) | `/dev/jai` misc char device: `write()` = event in (254 B cap, 4 KiB ring buffer, overwrite-oldest), `read()` = drain events (never blocks; empty → status frame with event counter). Loaded at boot via `modules-load.d` | **VERIFIED** live in VM + host |
 | The ears    | `agent/eventd/jai-eventd.c`   | C (json-c) | `jai-eventd` daemon: drains `/dev/jai` continuously into `/var/lib/jai/events.jsonl`; uses the status-frame counter to detect overflow → writes `{"gap":K}` records so the brain is TOLD when telemetry has holes | **SHIPPED** (Phase 3c, verified in VM) |
+| The eyes    | `agent/capabilities/jai-capabilities.c` | C (json-c) | measures the machine at every boot (cores, RAM, GPU/VRAM/driver, disk, net, display, virt) and writes `/etc/jai/capabilities.json` — the ONE truth file other layers read instead of guessing; profile (minimal/balanced/full) picks itself from RAM+cores, accel (cuda>rocm>vulkan>cpu) from the GPU probe — two independent axes; llvmpipe/lavapipe rejected by construction (vendor's own ICD required). Oneshot, < 1 s, atomic write, zero hard deps beyond json-c. Spec: CAPABILITIES-SPEC.md; deploy: phase2 5o / `scripts/vm-capabilities.sh` | **CODE LANDED** (roadmap 2b, 2026-11-04; build+boot-test in VM pending) |
 | The hands   | `agent/mcp/jai-mcp.c`         | C (json-c) | MCP stdio server giving the brain read-only tools: sysinfo, disk_usage, service_status, service_restart, jai_events, jai_dmesg, kernel-link, memory read/write, and more (11 tools). Security posture: charset allowlists, fork+execvp (never popen), fixed buffers, unprivileged; the ONE privileged action (restart `jai-*` units) is double-locked: code prefix check + `/etc/sudoers.d/jai-mcp` (mode 440) | **SHIPPED** (Phase 3b, verified in VM) |
 | The brain   | `opencode` v2.2.0 (pinned upstream binary) + `/etc/jai/opencode.json` | our config only | the agent that thinks: answers, plans, calls the hands via MCP; brain service (`jai-agent.service`) runs `opencode serve` on 127.0.0.1:4096; model pinned to the free tier; `autoupdate: false` (upgrades only via vm-upgrade-brain.sh) | **VERIFIED** in VM (first conversation 2026-10-28) |
 
@@ -51,10 +52,11 @@ Host pre-flight: `scripts/doctor.sh` (toolchain, headers, KVM, disk).
 
 | Script | Purpose |
 |---|---|
-| `scripts/vm-doctor.sh` | one-shot VM self-test: kernel link round-trip, hands, reflex arc, timers, brain, sudoers |
+| `scripts/vm-doctor.sh` | one-shot VM self-test: kernel link round-trip, hands, reflex arc, timers, capabilities probe, brain, sudoers |
 | `scripts/vm-update.sh` | refresh the JAI layer from repo main — download to temp first, compile BEFORE install, .bak every replaced file |
 | `scripts/vm-upgrade-brain.sh` | pinned opencode upgrades with DB backup + smoke test |
 | `scripts/vm-jai-mcp.sh` / `vm-eventd.sh` | live-VM installers for the hands / ears |
+| `scripts/vm-capabilities.sh` | live-VM installer for the eyes (fetches source over the VM's network, compiles in-VM, installs unit, first run) |
 | `scripts/chroot-run.sh` | safe interactive shell into the rootfs (opencode needs /proc — bare chroot is not enough) |
 
 ## The workshop host (documented, not committed — lives in /etc on the rig)
@@ -68,7 +70,7 @@ Host pre-flight: `scripts/doctor.sh` (toolchain, headers, KVM, disk).
 
 ## Deliberately not written yet (owned by [ROADMAP-V2.md](ROADMAP-V2.md))
 
-decoder (4b) → lessons tool (2b) → jai-gate (6b) → jai-capabilities
-probe (2b) → .deb packaging (M1) → installer (M2) → desktop profile
-with the assistant woven into the DE (M4). The order lives in the
-roadmap; the reasons live in [DECISIONS.md](DECISIONS.md).
+decoder (4b) → lessons tool (lessons loop) → jai-gate (6b) → .deb
+packaging (M1) → installer (M2) → desktop profile with the assistant
+woven into the DE (M4). The order lives in the roadmap; the reasons live
+in [DECISIONS.md](DECISIONS.md).

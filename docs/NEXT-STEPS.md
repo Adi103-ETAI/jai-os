@@ -371,6 +371,38 @@ Future bakes: `phase2.sh` step 5n builds jai-eventd inside the chroot and
 enables the unit automatically; `provision.sh` runs the whole pipeline
 (rootfs → setup → phase2 → disk) in one command.
 
+## STEP 7d — Roadmap 2b: give the OS its eyes (jai-capabilities)
+
+The OS must MEASURE whatever machine it lands on and adapt — never require
+(Law 1, VISION.md). `jai-capabilities` probes CPU/RAM/GPU/disk/net/display
+at every boot and writes `/etc/jai/capabilities.json`; the profile
+(minimal/balanced/full) and the accel tier (cuda > rocm > vulkan > cpu)
+pick THEMSELVES. Spec (the contract the code obeys): `docs/CAPABILITIES-SPEC.md`.
+
+Install into the RUNNING VM, one command (like 7b/7c):
+```bash
+# IN THE VM (serial or ssh -p 2222 jai@localhost):
+curl -fsSL https://raw.githubusercontent.com/Adi103-ETAI/jai-os/main/scripts/vm-capabilities.sh | sudo bash
+```
+(The script installs gcc+libjson-c-dev, fetches the C source, compiles
+IN THE VM — the build-host != target lesson — installs the oneshot unit,
+enables it at boot, runs it once, and prints the machine in plain words.)
+
+Acceptance (spec criteria 1-4 + 6):
+```bash
+cat /etc/jai/capabilities.json                      # valid JSON, "schema": 1
+/usr/local/bin/jai-capabilities --profile           # minimal|balanced|full
+systemd-analyze blame | grep jai-capabilities       # < 1 s boot cost
+sudo systemctl reboot                               # file regenerates at boot
+curl -fsSL https://raw.githubusercontent.com/Adi103-ETAI/jai-os/main/scripts/vm-doctor.sh | bash
+#   → 'capabilities.json valid: profile=minimal accel=cpu gpu=none' (VM has no GPU)
+```
+GPU-less box → `accel=cpu` with NO crash is itself a criterion (graceful
+degradation). The interesting run is on the WORKSHOP RIG itself (bare
+metal): expect `profile=balanced accel=vulkan gpu=amd(integrated)` —
+the probe and the GPU day must agree. For future bakes, `phase2.sh`
+step 5o builds the probe inside the chroot automatically.
+
 ## STEP 8 — Phase 4: voice
 `agent/gateway/` — openWakeWord → whisper.cpp → Piper, wired to
 `http://127.0.0.1:4096` (jai-agent). Bake Tailscale into the image.

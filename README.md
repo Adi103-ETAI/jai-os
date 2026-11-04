@@ -76,6 +76,7 @@ rootfs/packages.txt  # extra apt packages JAI adds (systemd/sysv + kmod pinned)
 agent/               # opencode config, JAI persona, jai wrapper, MCP + eventd + gateway
   agent/mcp/         #   jai-mcp.c — the hands (C MCP server, 11 tools)
   agent/eventd/      #   jai-eventd.c — the reflex arc (kernel events -> JSONL)
+  agent/capabilities/#   jai-capabilities.c — the eyes (boot-time hardware probe, roadmap 2b)
 scripts/             # doctor.sh (host pre-flight), phase2.sh (bake-in),
                      #   vm-jai-mcp.sh / vm-eventd.sh (live-VM installers),
                      #   vm-doctor.sh (VM self-test), vm-update.sh (safe refresh),
