@@ -8,9 +8,9 @@ Rule: system first, product second; every step has acceptance criteria.
 | 1  | 6a warm brain (unit + wrapper v2)      | system  | BUILD BLOCK SENT | BRAIN-UP on boot; kill -9 -> 3s recovery; cold fallback proven |
 | 2  | Tier-1 serving (Qwen3-0.6B, Ollama)    | system  | LIVE ON GPU ✅ (2026-11-04) | gate JSON round-trip via 10.0.2.2:11434 |
 | 2a | Tier-1 GPU offload (Vulkan iGPU unlock)| system  | DONE 2026-11-04 ✅ | ollama ps = 100% GPU; survives reboot ✅ |
-| 2b | jai-capabilities probe (measure machine → profile) | system | PLANNED | capabilities.json at boot; minimal/balanced/full picks itself |
+| 2b | jai-capabilities probe (measure machine → profile) | system | SPEC ✅ (2026-11-04) — code next | spec = CAPABILITIES-SPEC.md; capabilities.json at boot; minimal/balanced/full picks itself |
 | 3  | 4b decoder + jai_events tool           | system  | BLOCKED (needs: 254B struct, jai-mcp.c tail, phase2.sh) | decoded.jsonl populated; brain can read events |
-| 4  | 2b lessons (jai_lesson_write, cap 50)  | learning| after 3 | lessons.md grows; read-first verified |
+| 4  | lessons loop (jai_lesson_write, cap 50) | learning| after 3 | lessons.md grows; read-first verified |
 | 5  | 6b jai-gate (classes+budget)           | system  | after 3+4 | Class 2 wakes budgeted; 0/1 free |
 | 6  | Layer-0 fast path (rules+MCP answers)  | system  | after 5 | "disk?" answered <1 s, 0 tokens |
 | 7  | M1 .deb packages (dkms module, eventd, mcp, agent) | product | after 6 | apt install jai-os works on clean 24.04 |
@@ -33,3 +33,6 @@ Next unblocked actions (owner, on Kali):
    10.0.2.2:11434 from inside the VM
 3. Step 1 (run 6a block inside VM, paste outputs)
 4. Paste the three 4b inputs (event struct, jai-mcp.c tail, phase2.sh)
+5. 2b: review docs/CAPABILITIES-SPEC.md — on approval the code block
+   lands (C probe + systemd unit + vm-doctor check), build + boot-test
+   in the VM

@@ -55,6 +55,7 @@ debootstrap minimal rootfs
 | [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | **what to do next — exact commands, in order** |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | every design decision + why |
 | [docs/GPU-ACCEL.md](docs/GPU-ACCEL.md) | how tier-1 runs 100% on the Vega iGPU (Ollama + Vulkan) |
+| [docs/CAPABILITIES-SPEC.md](docs/CAPABILITIES-SPEC.md) | roadmap 2b — the boot-time hardware probe: schema, ladder, fallbacks |
 
 ## Hardware context
 
