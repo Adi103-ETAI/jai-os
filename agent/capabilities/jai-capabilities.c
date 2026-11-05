@@ -695,8 +695,8 @@ int main(int argc, char **argv)
      * a human explaining the machine) */
     json_object *notes = json_object_new_array();
     char buf[256];
-    snprintf(buf, sizeof buf, "%ld cores + %.1f GB RAM -> %s profile", cores,
-             (double)ram_mb / 1024.0, profile);
+    snprintf(buf, sizeof buf, "%ld %s + %.1f GB RAM -> %s profile", cores,
+             cores == 1 ? "core" : "cores", (double)ram_mb / 1024.0, profile);
     json_object_array_add(notes, json_object_new_string(buf));
 
     if (gpu.present) {
