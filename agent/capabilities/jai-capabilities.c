@@ -101,11 +101,17 @@ static int read_line(const char *path, char *out, size_t cap)
     return rc;
 }
 
-/* <dir>/<fname> first line, trimmed */
+/* <dir>/<fname> first line, trimmed. The snprintf return is checked so a
+ * path that would not fit fails cleanly instead of silently reading a
+ * truncated (wrong) file - and gcc -Wformat-truncation stays quiet. */
 static int read_line_in(const char *dir, const char *fname, char *out, size_t cap)
 {
     char path[PATH_MAX];
-    snprintf(path, sizeof path, "%s/%s", dir, fname);
+    int n = snprintf(path, sizeof path, "%s/%s", dir, fname);
+    if (n < 0 || (size_t)n >= sizeof path) {
+        out[0] = 0;
+        return -1;
+    }
     return read_line(path, out, cap);
 }
 
