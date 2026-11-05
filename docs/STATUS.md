@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-11-04 (roadmap 2b jai-capabilities CODE LANDED: probe + unit + installer + doctor check; spec-first contract in CAPABILITIES-SPEC.md; VM build+boot-test pending)
+Last updated: 2026-11-05 (roadmap 2b jai-capabilities LIVE ON VM: probe + unit + installer + doctor all green in the kvm bench — minimal+cpu, below_floor honored, idempotent, boot regen proven; only workshop bare-metal run pending)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -141,7 +141,7 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   `autoupdate: false` — upgrades only via vm-upgrade-brain.sh.
   `jai` wrapper now ships via overlay (JAI_MODEL per-call override).
 
-## Roadmap 2b — jai-capabilities (the eyes) 🟡 CODE LANDED (2026-11-04)
+## Roadmap 2b — jai-capabilities (the eyes) 🟢 LIVE ON VM (2026-11-05)
 - ✅ **Spec first** (`docs/CAPABILITIES-SPEC.md`): probe table, JSON schema v1,
   ladder thresholds, accel chain, service design, acceptance criteria
 - ✅ **The probe** (`agent/capabilities/jai-capabilities.c` + Makefile): C99 +
@@ -159,8 +159,15 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 - ✅ **Sandbox acceptance (partial)**: zero-warning build; valid JSON; GPU-less
   box → accel=cpu, no crash (criterion 5); idempotent (timestamp-only diff);
   CLI --profile/--write/--help; virt detected via plain systemd-detect-virt
-- ⬜ **VM acceptance**: run `vm-capabilities.sh` in the VM → criteria 1-4, 6
-  (workshop bare metal → balanced/vulkan when run on the rig itself)
+- ✅ **VM acceptance (2026-11-05)**: `vm-capabilities.sh` in the kvm bench →
+  schema 1, minimal + cpu + headless + kvm; 1 core / 961 MB + 511 MB swap →
+  `below_floor: true` (floor honored); boot regen proven (generated_at =
+  boot time 18:03:59Z, not script time — the unit writes at every boot);
+  idempotent — diff = timestamp only (18:03:59Z vs 18:04:23Z); vm-doctor
+  probe section OK, appliance healthy; rebuild after 6de0828 warning-free
+  on Ubuntu gcc-13 fortify
+- ⬜ **Workshop bare metal** (final 2b criterion): same installer on the rig
+  → expect balanced + vulkan + integrated (Athlon 3050U, 9.7 GB, RAVEN2)
 
 ## Phase 4 — Voice + remote access ⬜
 - ⬜ jai-gateway: openWakeWord + whisper.cpp (STT) + Piper (TTS), event-driven
@@ -174,7 +181,7 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
 - WORKING: kernel reflexes, eventd JSONL, MCP tools, wrapper v1, provision scripts,
   tier-1 serving (Ollama on host, 100% GPU via Vulkan iGPU), capabilities probe
-  (code landed, VM test pending).
+  (LIVE on VM 2026-11-05).
 - MEASURED: cold thought 45.6 s; error path 10.87 s; warm service 434 MB / 0.4% CPU;
   tier-1 926 MB GPU-resident; host 87.5% idle with VM up (load 0.63); QEMU runs
   `-accel kvm -cpu host` (confirmed); VM RAM 961 MB (needs 2G).
