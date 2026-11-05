@@ -9,10 +9,10 @@ Rule: system first, product second; every step has acceptance criteria.
 | 2  | Tier-1 serving (Qwen3-0.6B, Ollama)    | system  | LIVE ON GPU ✅ (2026-11-04) | gate JSON round-trip via 10.0.2.2:11434 |
 | 2a | Tier-1 GPU offload (Vulkan iGPU unlock)| system  | DONE 2026-11-04 ✅ | ollama ps = 100% GPU; survives reboot ✅ |
 | 2b | jai-capabilities probe (measure machine → profile) | system | LIVE ON VM ✅ (2026-11-05) — workshop run pending | spec = CAPABILITIES-SPEC.md; capabilities.json at boot; minimal/balanced/full picks itself |
-| 3  | 4b decoder + jai_events tool           | system  | BLOCKED (needs: 254B struct, jai-mcp.c tail, phase2.sh) | decoded.jsonl populated; brain can read events |
-| 4  | lessons loop (jai_lesson_write, cap 50) | learning| after 3 | lessons.md grows; read-first verified |
-| 5  | 6b jai-gate (classes+budget)           | system  | after 3+4 | Class 2 wakes budgeted; 0/1 free |
-| 6  | Layer-0 fast path (rules+MCP answers)  | system  | after 5 | "disk?" answered <1 s, 0 tokens |
+| 3  | 4b decoder + jai_events tool           | system  | SPEC DRAFTED ✅ (2026-11-05) — EVENTS-DECODER-SPEC.md; inputs were in-repo all along | decoded.jsonl populated; brain can read events |
+| 4  | lessons loop (jai_lesson_write, cap 50) | learning| SPEC DRAFTED ✅ (2026-11-05) — LESSONS-SPEC.md | lessons.md grows; read-first verified |
+| 5  | 6b jai-gate (classes+budget)           | system  | SPEC DRAFTED ✅ (2026-11-05) — GATE-SPEC.md | Class 2 wakes budgeted; 0/1 free |
+| 6  | Layer-0 fast path (rules+MCP answers)  | system  | SPEC DRAFTED ✅ (2026-11-05) — LAYER0-SPEC.md | "disk?" answered <1 s, 0 tokens |
 | 7  | M1 .deb packages (dkms module, eventd, mcp, agent) | product | after 6 | apt install jai-os works on clean 24.04 |
 | 8  | M2 installer (autoinstall seed / ISO)  | product | after 7 | bare-metal install without manual SSH |
 | 9  | M3 config TUI + read-only REST API     | product | after 8 | jai-config works; API serves status |
@@ -32,7 +32,10 @@ Next unblocked actions (owner, on Kali):
 2. Expose Ollama to the VM: OLLAMA_HOST=0.0.0.0:11434 drop-in; test
    10.0.2.2:11434 from inside the VM
 3. Step 1 (run 6a block inside VM, paste outputs)
-4. Paste the three 4b inputs (event struct, jai-mcp.c tail, phase2.sh)
+4. Review the four specs (docs/EVENTS-DECODER-SPEC.md, LESSONS-SPEC.md,
+   GATE-SPEC.md, LAYER0-SPEC.md) → approve → code lands spec-first,
+   step 3 first. (The old "paste the three 4b inputs" action is
+   obsolete: kernel struct, mcp, phase2.sh were in-repo all along.)
 5. 2b: DONE in the VM (2026-11-05) — probe + unit + installer + doctor all
    green (minimal + cpu + kvm, below_floor honored, idempotent, boot regen
    proven). Last 2b box: run the same installer on the workshop rig →

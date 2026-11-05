@@ -56,6 +56,10 @@ debootstrap minimal rootfs
 | [docs/DECISIONS.md](docs/DECISIONS.md) | every design decision + why |
 | [docs/GPU-ACCEL.md](docs/GPU-ACCEL.md) | how tier-1 runs 100% on the Vega iGPU (Ollama + Vulkan) |
 | [docs/CAPABILITIES-SPEC.md](docs/CAPABILITIES-SPEC.md) | roadmap 2b — the boot-time hardware probe: schema, ladder, fallbacks |
+| [docs/EVENTS-DECODER-SPEC.md](docs/EVENTS-DECODER-SPEC.md) | roadmap 3 — the event decoder: decoded.jsonl schema, rule table, resume rules |
+| [docs/LESSONS-SPEC.md](docs/LESSONS-SPEC.md) | roadmap 4 — the lessons loop: jai_lesson_write contract, cap-50, read-first |
+| [docs/GATE-SPEC.md](docs/GATE-SPEC.md) | roadmap 5 — the wake policy: classes, budget, dedup, serialization |
+| [docs/LAYER0-SPEC.md](docs/LAYER0-SPEC.md) | roadmap 6 — the fast path: fixed action set, wrapper v3 chain |
 
 ## Hardware context
 

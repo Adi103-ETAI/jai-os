@@ -1,6 +1,6 @@
 # JAI — Status
 
-Last updated: 2026-11-05 (roadmap 2b jai-capabilities LIVE ON VM: probe + unit + installer + doctor all green in the kvm bench — minimal+cpu, below_floor honored, idempotent, boot regen proven; only workshop bare-metal run pending)
+Last updated: 2026-11-05 (2b LIVE ON VM; roadmap 3-6 critical-path specs drafted in one batch, awaiting review — EVENTS-DECODER / LESSONS / GATE / LAYER0)
 
 Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
 
@@ -168,6 +168,28 @@ Legend: ✅ done · 🟡 partial/designed but not baked in · ⬜ not started
   on Ubuntu gcc-13 fortify
 - ⬜ **Workshop bare metal** (final 2b criterion): same installer on the rig
   → expect balanced + vulkan + integrated (Athlon 3050U, 9.7 GB, RAVEN2)
+
+## Roadmap 3-6 — critical-path specs drafted (2026-11-05) 🟡 REVIEW PENDING
+- ✅ **Specs first, one batch** (user: "draft the specs of other phase at
+  one go and push"):
+  **EVENTS-DECODER-SPEC.md** (step 3 — decoded.jsonl v1 additive schema,
+  prefix rule table /etc/jai/decode-rules.conf, offset resume +
+  copytruncate survival, gap passthrough kind=gap),
+  **LESSONS-SPEC.md** (step 4 — jai_lesson_write MCP tool, cap-50-REFUSE
+  not drop, tool dates the line, read-first via AGENTS.md discipline +
+  doctor canary), **GATE-SPEC.md** (step 5 — classes 0/1/2, budget
+  max_wakes/daily_cap/dedup with named suppressions in pulse, one
+  thought in flight, brain-down → note fallback, **user questions NEVER
+  gated** per Law 2 — spec refines ARCHITECTURE-V2 §4), **LAYER0-SPEC.md**
+  (step 6 — 10 fixed actions, no free-text exec ever, wrapper v3 chain
+  layer0→warm→cold, answers with the brain dead, `--brain` escape hatch).
+- ✅ **Grounded, not invented**: every spec cites the shipped contracts
+  (jai_dev.c 254 B ring + status frame, eventd gap/counter logic and
+  eventd-LOCAL seq, jai-mcp security posture, capabilities.json v1).
+- ✅ **One design correction recorded**: gate scope = autonomous wakes
+  only; the wrapper owns the user path (Law 2 refinement, in GATE-SPEC).
+- ⬜ **Review → approve → code**, spec-first, step 3 first (steps 4-6
+  code after their predecessors land, same as 2b's rhythm).
 
 ## Phase 4 — Voice + remote access ⬜
 - ⬜ jai-gateway: openWakeWord + whisper.cpp (STT) + Piper (TTS), event-driven
